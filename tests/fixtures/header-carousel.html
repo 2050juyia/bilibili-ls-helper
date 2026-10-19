@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Header animation regression fixture</title>
+<style>
+body{margin:0;font:18px sans-serif;background:#eee}
+.bili-header__bar{height:64px;background:white;display:flex;gap:40px;padding:0 24px}
+.loc-moveclip{display:block;width:54px;height:64px;overflow:hidden;color:#222}
+.loc-mc-box{animation:locmoveclipslider 10s linear infinite}
+.loc-mc-box p{margin:0;height:64px;line-height:64px}
+@keyframes locmoveclipslider{0%{transform:translateY(0);animation-timing-function:ease-out}5%,50%{transform:translateY(-64px);animation-timing-function:ease-out}55%,100%{transform:translateY(-128px)}}
+.right-container{padding:20px}.playing-gif{display:inline-block;width:12px;height:12px;background-image:url(data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7)}
+.bpx-player-container{width:800px;height:450px;background:#222;color:white;padding:20px;box-sizing:border-box}
+.unrelated{animation:unrelated 2s linear infinite}
+@keyframes unrelated{to{opacity:.4}}
+</style>
+<header class="bili-header__bar"><a class="loc-entry loc-moveclip" href="#s16"><div class="loc-mc-box"><p>S16</p><p>入口图片</p><p>S16</p></div></a><span class="unrelated">其他动画</span></header>
+<div class="bpx-player-container"><button id="fullscreen">全屏</button><p>仅用于回归测试，不加载视频或发送弹幕</p></div>
+<aside class="right-container"><button id="episode"><span class="playing-gif"></span> 第三季09</button><output id="clicks">0</output></aside>
+<script>
+document.querySelector('#fullscreen').onclick=()=>document.querySelector('.bpx-player-container').requestFullscreen();
+document.querySelector('#episode').onclick=()=>document.querySelector('#clicks').value=String(+document.querySelector('#clicks').value+1);
+</script>

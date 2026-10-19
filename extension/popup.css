@@ -1,0 +1,42 @@
+:root { color-scheme: light dark; font: 400 13px/1.55 "Microsoft YaHei", system-ui, sans-serif; --bg: #fff; --soft: #f6f7fa; --fg: #222c3c; --sub: #667184; --line: #e9ecf1; --accent: #4268c5; --tint: #edf2ff; --on: #fff; --good: #248363; --warn: #946016; color: var(--fg); background: var(--bg); }
+@media (prefers-color-scheme: dark) { :root { --bg: #20232c; --soft: #292e39; --fg: #f1f2f6; --sub: #b5bdcc; --line: #3c4352; --accent: #a2baff; --tint: #293650; --on: #18233c; --good: #76d8b4; --warn: #f2c27b; } }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+/* The action popup starts with a narrow viewport before Chromium sizes it.
+   An explicit root minimum prevents percentage widths from locking that size. */
+html { width: 402px; min-width: 402px; }
+body { width: 402px; min-width: 402px; margin: 0; overflow-wrap: anywhere; }
+button, input, select { font: inherit; accent-color: var(--accent); }
+button, select, summary, .toggle { cursor: pointer; }
+button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.head { display: flex; align-items: center; gap: 11px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.mark { display: block; width: 36px; height: 36px; flex-shrink: 0; object-fit: contain; }
+h1 { font-size: 17px; font-weight: 500; margin: 0; white-space: nowrap; }
+.master { margin-left: auto; display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.master span { font-size: 11px; color: var(--sub); }
+.toggle { appearance: none; -webkit-appearance: none; width: 36px; height: 21px; border: 0; border-radius: 20px; background: var(--line); position: relative; margin: 0; flex-shrink: 0; }
+.toggle::before { content: ""; display: block; position: absolute; left: 3px; top: 3px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0002; }
+.toggle:checked { background: var(--accent); }
+.toggle:checked::before { left: 18px; background: var(--on); }
+main { padding: 8px 20px 16px; }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+fieldset:disabled .setting-row { opacity: .55; }
+.setting-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 0; }
+.setting-row strong { display: block; font-size: 13px; font-weight: 400; }
+.setting-row small { display: block; color: var(--sub); font-size: 11px; margin-top: 3px; }
+.setting-row select { width: 143px; max-width: 48%; padding: 7px 6px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--fg); font-size: 12px; }
+.rule { height: 1px; background: var(--line); margin: 8px 0; }
+.immediate { color: var(--good); }
+.info { margin-top: 13px; color: var(--sub); font-size: 11px; }
+.info summary { width: fit-content; }
+.info p { margin: 8px 0 0; line-height: 1.7; }
+.status { margin-top: 12px; color: var(--sub); }
+.status[data-tone="warning"], .status[data-tone="error"] { color: var(--warn); }
+.status strong { font-weight: 400; font-size: 11px; display: block; }
+.status p { color: var(--sub); font-size: 11px; margin: 3px 0 0; }
+#reload { width: 100%; padding: 11px 12px; border: 0; border-radius: 9px; background: var(--accent); color: var(--on); font-weight: 500; margin-top: 12px; }
+#reload > span:first-child { font-size: 16px; vertical-align: -1px; margin-right: 5px; }
+footer { display: flex; justify-content: space-between; gap: 10px; padding: 10px 20px; border-top: 1px solid var(--line); font-size: 11px; color: var(--sub); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (forced-colors: active) { .toggle { appearance: auto; } .toggle::before { display: none; } }

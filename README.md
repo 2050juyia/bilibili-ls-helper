@@ -16,10 +16,30 @@
 3. 开启「开发者模式」，选择「加载已解压的扩展程序」。
 4. 选择解压后**直接包含 `manifest.json`** 的 `bilibili-fixed-danmaku` 文件夹。
 5. 刷新已经打开的B站视频页。
+6. 从浏览器右上角的扩展菜单找到「B站小黄鸭插帧助手」，打开设置；可以将其固定到工具栏，方便下次使用。
+
+要选择的是直接看到 `manifest.json` 的这一层，**不要选择ZIP文件或上一级目录**。解压后的文件夹需要继续保留：
+
+```text
+bilibili-fixed-danmaku/
+├─ manifest.json
+├─ popup.html
+└─ icons/
+```
 
 GitHub 自动生成的 `Source code (zip)` 是开发源码；从源码安装时，应加载仓库内的 `extension` 文件夹。普通用户无需安装 Node.js、Python 或 npm 依赖，也无需编译。
 
-扩展使用 Manifest V3，声明的 Chromium 最低版本为111。当前实机验证主要在 Edge 进行，Chrome 及其他浏览器需按实际使用条件确认。
+### 浏览器兼容性
+
+**Windows 桌面版 Microsoft Edge、Google Chrome 均已有实际使用成功记录。**
+
+| 浏览器 | 验证情况 |
+| --- | --- |
+| Microsoft Edge | 已有实机验证记录。 |
+| Google Chrome | 2026-10-19，用户使用插件1.3.13实测并反馈正常使用。 |
+| 360、QQ、Firefox及其他浏览器 | 尚未完成验证，不将共享内核视为已确认兼容。 |
+
+以上是已有环境的成功记录，不代表所有浏览器版本、设备和视频都已验证。此次 Chrome 反馈未记录具体浏览器版本与硬件配置；遇到问题时请一并提供这些信息。扩展使用 Manifest V3，声明的 Chromium 最低版本为111，此安装声明不等于逐版本实测。
 
 ## 推荐设置（与视频演示一致）
 

@@ -2,7 +2,7 @@
 
 Run: python scripts/render-install-guides.py
 Optional font overrides: --font, --bold-font, --mono-font (TTF/TTC paths).
-Official browser references are kept verbatim under docs/assets/reference/.
+Browser screenshots are kept verbatim under docs/assets/reference/.
 Folder and popup illustrations are labeled diagrams, not captured browser UI.
 """
 import argparse
@@ -26,6 +26,7 @@ LINE = "#d6e6da"
 QUARK = "https://pan.quark.cn/s/4603da61b708"
 REPO = "https://github.com/2050juyia/bilibili-ls-helper"
 VERSION = "1.3.13"
+EDITION = 2
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--font", default="C:/Windows/Fonts/msyh.ttc")
@@ -143,23 +144,24 @@ def render(browser):
     im.paste(icon, (W - 217, 53), icon)
     y = 270
 
-    cy = card(d, y, 460, 1, "下载 ZIP，并全部解压")
-    text(d, (86, cy), "获取地址", 27, SUB)
+    cy = card(d, y, 640, 1, "选择获取方式，下载并解压")
+    text(d, (86, cy), "网盘 · 插件安装包", 27, SUB)
     d.rounded_rectangle((86, cy + 43, W - 86, cy + 111), radius=13, fill=SOFT)
     text(d, (108, cy + 57), QUARK, 33, ACCENT, mono=True)
-    text(d, (86, cy + 139), "下载 bilibili-danmaku-assistant-v1.3.13.zip", 31)
-    d.rounded_rectangle((86, cy + 193, 605, cy + 270), radius=13, fill="#f7f8fa")
-    text(d, (109, cy + 215), "右键 ZIP → 全部解压缩", 31, bold=True)
-    arrow(d, 632, cy + 232, 717)
-    folder(d, 755, cy + 207)
-    text(d, (846, cy + 215), "放在固定目录", 31, bold=True)
-    text(d, (86, cy + 299), "例如 D:\\BrowserExtensions；安装后保留文件夹，不随意移动或删除。", 26, SUB)
-    y += 484
+    text(d, (86, cy + 139), "GitHub · 源码下载与说明", 27, SUB)
+    d.rounded_rectangle((86, cy + 182, W - 86, cy + 250), radius=13, fill=SOFT)
+    text(d, (108, cy + 199), REPO, 30, ACCENT, mono=True)
+    text(d, (86, cy + 278), "网盘下载版本 ZIP；GitHub 点击 Code → Download ZIP。", 29)
+    d.rounded_rectangle((86, cy + 334, 605, cy + 411), radius=13, fill="#f7f8fa")
+    text(d, (109, cy + 356), "右键 ZIP → 全部解压缩", 31, bold=True)
+    arrow(d, 632, cy + 373, 717)
+    folder(d, 755, cy + 348)
+    text(d, (846, cy + 356), "放在固定目录", 31, bold=True)
+    text(d, (86, cy + 448), "例如 D:\\BrowserExtensions；安装后保留文件夹，不随意移动或删除。", 26, SUB)
+    y += 664
 
-    ref = Image.open(ASSETS / "reference" / (browser + "-official.png")).convert("RGB")
-    if not is_edge:
-        # Crop out the official Hello Extensions example card, retaining real controls.
-        ref = ref.crop((0, 0, ref.width, 219))
+    reference_name = "edge-official.png" if is_edge else "chrome-user-1.3.13.png"
+    ref = Image.open(ASSETS / "reference" / reference_name).convert("RGB")
     refw = 1200
     refh = round(ref.height * refw / ref.width)
     h = 350 + refh + 73
@@ -170,16 +172,17 @@ def render(browser):
     text(d, (W - 202, cy + 23), "按回车", 27, SUB)
     text(d, (86, cy + 104), "① 开启「" + dev + "」", 30, bold=True)
     text(d, (650, cy + 104), "② 点击「" + load + "」", 30, bold=True)
-    text(d, (86, cy + 157), "下方为官方界面截图；英文按钮对应以上中文名称。", 25, SUB)
+    text(d, (86, cy + 157), "下方为微软官方界面截图；英文按钮对应以上中文名称。" if is_edge else
+         "下方为用户提供的 Chrome 实际截图，显示本插件 1.3.13 已加载。", 25, SUB)
     im.paste(ref.resize((refw, refh), Image.Resampling.LANCZOS), (120, cy + 211))
     text(d, (86, cy + 233 + refh), "按钮位置可能随版本变化；Edge 部分版本会显示不同的中文译名。" if is_edge else
          "开发者模式在右上角；开启后，再点击左侧出现的加载按钮。", 25, SUB)
     y += h + 24
 
-    cy = card(d, y, 740, 3, "选对文件夹：先在资源管理器核对")
-    paragraph(d, 86, cy, "进入解压后的文件夹，找到 manifest.json。浏览器要加载的就是直接包含它的这一层。", 1268, 31)
+    cy = card(d, y, 740, 3, "选对文件夹：直接包含 manifest.json")
+    paragraph(d, 86, cy, "网盘包选 bilibili-fixed-danmaku；GitHub 源码包选 extension。先在资源管理器核对，所选目录要直接包含 manifest.json。", 1268, 31)
     d.rounded_rectangle((86, cy + 115, W - 86, cy + 375), radius=19, fill=SOFT, outline=LINE, width=2)
-    text(d, (112, cy + 135), "解压工具可能另加一层外部目录；继续往里找：", 27, SUB)
+    text(d, (112, cy + 135), "以网盘安装包为例；GitHub 源码包对应的目录名为 extension：", 27, SUB)
     folder(d, 122, cy + 194, 49, 35)
     text(d, (190, cy + 194), "bilibili-fixed-danmaku", 35, FG, True, mono=True)
     text(d, (870, cy + 199), "← 选择这一层", 31, ACCENT, True)
@@ -226,8 +229,8 @@ def render(browser):
     text(d, (86, y + 25), "固定弹幕是可选功能", 31, bold=True)
     paragraph(d, 86, y + 78, "会把滚动弹幕转换为固定文字，密集时可能漏显示；无此需求直接用滚动弹幕。", 1268, 25)
     y += 180
-    text(d, (58, y), "图源：" + ("Microsoft Learn" if is_edge else "Chrome for Developers") + " 官方截图；文件夹与设置面板为教学示意。", 22, SUB)
-    text(d, (58, y + 39), "详细文字步骤、问题排查与图源链接见配套教程。制作日期：2026-10-19", 22, SUB)
+    text(d, (58, y), "图源：" + ("Microsoft Learn 官方截图" if is_edge else "用户提供的 Chrome 截图") + "；文件夹与设置面板为教学示意。", 22, SUB)
+    text(d, (58, y + 39), "详细文字步骤与图源见配套教程。教程第 " + str(EDITION) + " 版 · 插件 " + VERSION + " · 2026-10-19", 22, SUB)
     y += 88
     if y > im.height:
         raise RuntimeError("Canvas exceeded: " + str(y))
@@ -249,9 +252,10 @@ button[aria-selected=true]{background:#23745a;color:white;border-color:#23745a}.
 footer{max-width:1040px;margin:24px auto;padding:0 24px 48px;color:#4d695f}a{color:#23745a}button:focus-visible,a:focus-visible{outline:3px solid #d8ae43;outline-offset:4px}
 </style><header><h1>从安装包安装 · Edge / Chrome</h1><p>Windows 电脑适用。先选浏览器，再按图操作；两份长图均可保存。插件需配合 Lossless Scaling 使用。</p>
 <nav role="tablist" aria-label="选择浏览器"><button role="tab" aria-selected="true" data-browser="edge">Microsoft Edge</button><button role="tab" aria-selected="false" data-browser="chrome">Google Chrome</button></nav>
-<div class="downloads"><a class="action" id="png-download" href="assets/install-edge.png" download>保存 Edge 安装长图</a><a class="action" href="https://pan.quark.cn/s/4603da61b708" target="_blank" rel="noreferrer">获取插件安装包</a></div></header>
+<div class="downloads"><a class="action" id="png-download" href="assets/install-edge.png" download>保存 Edge 安装长图</a><a class="action" href="https://pan.quark.cn/s/4603da61b708" target="_blank" rel="noreferrer">网盘 · 插件安装包</a><a class="action" href="https://github.com/2050juyia/bilibili-ls-helper" target="_blank" rel="noreferrer">GitHub · 源码与说明</a></div></header>
+<p style="max-width:992px;margin:0 auto 18px;padding:0 24px">GitHub 下载：Code → Download ZIP；解压后加载 extension 文件夹。网盘安装包则加载 bilibili-fixed-danmaku。</p>
 <main><img id="guide" src="assets/install-edge.png" alt="Edge 从ZIP安装B站小黄鸭插帧助手：下载、解压、加载文件夹与推荐设置"></main>
-<footer><p>浏览器界面采用官方文档截图；文件夹和推荐设置面板为教学示意，并非本轮实机安装截图。按钮位置、译名可能随浏览器版本变化。</p>
+<footer><p>Edge界面采用微软官方截图；Chrome界面采用用户提供的1.3.13实际截图。文件夹和推荐设置面板为教学示意。按钮位置、译名可能随浏览器版本变化。</p>
 <p>完整文字教程：<a href="install-edge.zh-CN.md">Edge</a> · <a href="install-chrome.zh-CN.md">Chrome</a> · <a href="assets/SOURCES.md">图源与复现说明</a></p>
 <p>找不到 manifest？先在文件资源管理器核对目录；浏览器的文件夹选择窗口可能只显示 icons，这是正常的。加载后应保留解压目录。</p></footer>
 <script>for(const b of document.querySelectorAll('[data-browser]'))b.addEventListener('click',()=>{let n=b.dataset.browser,label=n==='edge'?'Edge':'Chrome';for(const x of document.querySelectorAll('[data-browser]'))x.setAttribute('aria-selected',String(x===b));let img=document.getElementById('guide');img.src='assets/install-'+n+'.png';img.alt=label+' 从ZIP安装教程';let a=document.getElementById('png-download');a.href=img.src;a.textContent='保存 '+label+' 安装长图';});</script></html>"""
@@ -261,8 +265,9 @@ footer{max-width:1040px;margin:24px auto;padding:0 24px 48px;color:#4d695f}a{col
 ASSETS.mkdir(parents=True, exist_ok=True)
 rows = [render("edge"), render("chrome")]
 preview()
-manifest = {"version": VERSION, "date": "2026-10-19", "outputs": rows,
+manifest = {"version": VERSION, "edition": EDITION, "date": "2026-10-19", "outputs": rows,
             "references": [{"path": p.relative_to(ROOT).as_posix(), "bytes": p.stat().st_size,
+                            "used_in_current_edition": p.name in ("edge-official.png", "chrome-user-1.3.13.png"),
                             "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
                            for p in sorted((ASSETS / "reference").glob("*.png"))]}
 (ROOT / "docs" / "install-guide-manifest.json").write_text(
@@ -270,8 +275,8 @@ manifest = {"version": VERSION, "date": "2026-10-19", "outputs": rows,
 if args.export_dir:
     args.export_dir.mkdir(parents=True, exist_ok=True)
     for browser, label in [("edge", "Edge"), ("chrome", "Chrome")]:
-        shutil.copy2(ASSETS / ("install-" + browser + ".png"), args.export_dir / (label + "_安装教程_v1.png"))
-    archive = args.export_dir / "安装教程_Edge与Chrome_v1.zip"
+        shutil.copy2(ASSETS / ("install-" + browser + ".png"), args.export_dir / (label + "_安装教程_v" + str(EDITION) + ".png"))
+    archive = args.export_dir / ("安装教程_Edge与Chrome_v" + str(EDITION) + ".zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
         for p in sorted((ROOT / "docs").rglob("*")):
             if p.is_file():

@@ -4,11 +4,14 @@
 
 ![Chrome从ZIP安装与设置图解](assets/install-chrome.png)
 
-浏览器部分使用官方文档的真实界面截图；文件夹和推荐设置面板为教学示意，并非本轮在用户电脑重新安装的截图。浏览器版本不同，按钮文字和位置可能略有变化。[图源与复现说明](assets/SOURCES.md)
+Chrome浏览器部分使用用户提供的真实截图，截图中的插件版本为1.3.13；文件夹和推荐设置面板为教学示意，并非本轮重新安装的完整过程截图。浏览器版本不同，按钮文字和位置可能略有变化。[图源与复现说明](assets/SOURCES.md)
 
 ## 1. 下载并解压
 
-打开[夸克网盘下载页](https://pan.quark.cn/s/4603da61b708)，下载 `bilibili-danmaku-assistant-v1.3.13.zip`，不要直接在压缩包内操作。
+两种获取方式任选其一：
+
+- **夸克安装包：**打开[夸克网盘下载页](https://pan.quark.cn/s/4603da61b708)，下载 `bilibili-danmaku-assistant-v1.3.13.zip`。
+- **GitHub源码包：**打开[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)，点击 **Code → Download ZIP**。解压后需加载里面的 `extension` 文件夹；不要选择整个源码目录。GitHub目前没有已发布的Release安装包。
 
 在Windows文件资源管理器中右键点击ZIP，选择「全部解压缩／全部解压」。解压到以后不会随手清理的固定目录，例如 `D:\BrowserExtensions`。安装后仍要保留解压出的文件夹；不能只留下ZIP，也不要随意移动文件夹。
 
@@ -17,13 +20,13 @@
 1. 把 `chrome://extensions` 复制到Chrome地址栏，按回车。
 2. 开启右上角的「开发者模式」。
 3. 点击页面出现的「加载已解压的扩展程序」。
-4. 找到解压后的 `bilibili-fixed-danmaku` 文件夹，确认里面直接有 `manifest.json`，再选中**这个文件夹**。
+4. 根据下载来源选择目录：**夸克安装包选 `bilibili-fixed-danmaku`；GitHub源码包选解压目录里的 `extension`**。确认选中的文件夹直接包含 `manifest.json`。
 
 ```text
-bilibili-fixed-danmaku/  ← 选择这一层
-├─ manifest.json
-├─ popup.html
-└─ icons/
+夸克包：bilibili-fixed-danmaku/       ← 选择这一层
+GitHub源码包：源码解压目录/extension/  ← 选择这一层
+
+所选目录内应直接包含：manifest.json、popup.html、icons/ 等
 ```
 
 不是选择ZIP，也不是选择外层下载目录。若解压工具又套了一层同名文件夹，请继续往里找，直到能直接看到 `manifest.json`。
@@ -49,7 +52,7 @@ Chrome出现「B站小黄鸭插帧助手」卡片后，先打开一个B站视频
 
 ## 常见问题
 
-**提示清单文件缺失或无法加载？** 多数是选错目录。返回解压目录，选择直接包含 `manifest.json` 的那一层。若下载的是GitHub的 `Source code (zip)`，应加载源码里的 `extension` 文件夹。
+**提示清单文件缺失或无法加载？** 多数是选错目录。夸克包选 `bilibili-fixed-danmaku`，GitHub的 **Code → Download ZIP** 源码包选其中的 `extension`；两者都要选直接包含 `manifest.json` 的那一层。
 
 **装好却找不到图标？** 点击Chrome工具栏的「扩展程序」菜单，找到「B站小黄鸭插帧助手」并点图钉；没固定图标不代表没安装。
 

@@ -2,7 +2,7 @@
 
 本次 MIT 声明针对作者有权许可的原创源代码及相关原创说明，不将第三方作品、名称或商标自动纳入授权。
 
-安装图文中的浏览器官方截图分别来自 Microsoft Learn 和 Chrome for Developers，权利属于对应权利人，不纳入本项目MIT授权；原图链接、使用方式和教学示意区别见 `docs/assets/SOURCES.md`。
+安装图文中的Edge管理页截图来自Microsoft Learn，第2版Chrome管理页截图由用户提供；第1版Chrome官方截图保留作历史参考。截图中第三方界面、名称与商标的权利属于对应权利人，不纳入本项目MIT授权；来源、使用方式和教学示意区别见 `docs/assets/SOURCES.md`。
 
 - bilibili/B站和 Lossless Scaling/小黄鸭仅用于说明适配平台和配套软件，相关名称及商标属于各自权利人。本项目与其官方无隶属关系。
 - 本插件不附带 Lossless Scaling 软件；用户需自行取得并运行。

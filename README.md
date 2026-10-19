@@ -7,16 +7,16 @@
 ## 下载与安装
 
 - **安装包与说明：[夸克网盘下载](https://pan.quark.cn/s/4603da61b708)**。
-- 源码、安装说明和版本记录：[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)。
+- **GitHub 源码与说明：[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)**。点击 **Code → Download ZIP** 下载源码包，解压后加载其中的 `extension` 文件夹。
 
 第一次安装可先看：**[Edge 图文教程](docs/install-edge.zh-CN.md)** / **[Chrome 图文教程](docs/install-chrome.zh-CN.md)**。每份都有可保存的安装长图，覆盖解压、加载正确文件夹和推荐设置。
 
-当前版本为 **1.3.13**。请下载按版本命名的 `bilibili-danmaku-assistant-v1.3.13.zip`，并按以下步骤安装：
+当前版本为 **1.3.13**。网盘中下载按版本命名的 `bilibili-danmaku-assistant-v1.3.13.zip`；GitHub 使用上方的源码下载方式。两种方式都需要先解压，再按以下步骤安装：
 
 1. 解压到一个以后不会删除或移动的固定文件夹。
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。
 3. 开启「开发者模式」，选择「加载已解压的扩展程序」。
-4. 选择解压后**直接包含 `manifest.json`** 的 `bilibili-fixed-danmaku` 文件夹。
+4. 选择解压后**直接包含 `manifest.json`** 的文件夹：网盘安装包选 `bilibili-fixed-danmaku`；GitHub 源码包选 `extension`。
 5. 刷新已经打开的B站视频页。
 6. 从浏览器右上角的扩展菜单找到「B站小黄鸭插帧助手」，打开设置；可以将其固定到工具栏，方便下次使用。
 
@@ -29,7 +29,29 @@ bilibili-fixed-danmaku/
 └─ icons/
 ```
 
-GitHub 自动生成的 `Source code (zip)` 是开发源码；从源码安装时，应加载仓库内的 `extension` 文件夹。普通用户无需安装 Node.js、Python 或 npm 依赖，也无需编译。
+上面的目录示意以网盘安装包为例。GitHub 的 **Code → Download ZIP** 下载的是源码包，对应目录名为 `extension`。普通用户无需安装 Node.js、Python 或 npm 依赖，也无需编译。
+
+### Edge / Chrome 安装图解
+
+按使用的浏览器展开对应长图。也可以点击图片下方的原图链接，单独查看或保存。Chrome 使用用户提供的实际截图；Edge 使用微软官方界面截图，文件夹和推荐设置面板为教学示意。图源与复现方法见 [SOURCES.md](docs/assets/SOURCES.md)。
+
+<details>
+<summary>Microsoft Edge 安装图解（点击展开）</summary>
+
+![Microsoft Edge 安装教程：获取插件、解压、加载正确文件夹与推荐设置](docs/assets/install-edge.png)
+
+[查看／保存 Edge 原图](docs/assets/install-edge.png) · [Edge 完整文字教程与常见问题](docs/install-edge.zh-CN.md)
+
+</details>
+
+<details>
+<summary>Google Chrome 安装图解（点击展开）</summary>
+
+![Google Chrome 安装教程：获取插件、解压、加载正确文件夹与推荐设置](docs/assets/install-chrome.png)
+
+[查看／保存 Chrome 原图](docs/assets/install-chrome.png) · [Chrome 完整文字教程与常见问题](docs/install-chrome.zh-CN.md)
+
+</details>
 
 ### 浏览器兼容性
 

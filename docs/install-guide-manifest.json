@@ -1,0 +1,34 @@
+{
+  "version": "1.3.13",
+  "date": "2026-10-19",
+  "outputs": [
+    {
+      "browser": "Microsoft Edge",
+      "path": "docs/assets/install-edge.png",
+      "width": 1440,
+      "height": 4372,
+      "bytes": 767730,
+      "sha256": "52eac96f1f60efddcd3679a39e1e4ff3869a7d851feb1193ea89f26f9313e3f6"
+    },
+    {
+      "browser": "Google Chrome",
+      "path": "docs/assets/install-chrome.png",
+      "width": 1440,
+      "height": 3951,
+      "bytes": 642106,
+      "sha256": "46bb2241ea007de61c7ff45f4b46eebb186b33325e76140ae30f27d88236cdce"
+    }
+  ],
+  "references": [
+    {
+      "path": "docs/assets/reference/chrome-official.png",
+      "bytes": 18036,
+      "sha256": "a0ca6ea39d8206491b921212ca17b066f1fc0d80c2c8b93c7411dd5f84a111b6"
+    },
+    {
+      "path": "docs/assets/reference/edge-official.png",
+      "bytes": 74952,
+      "sha256": "d7d115dea85e5dd5ca9af41bfc9bfdc229693dd4b8f8662bc9d166ff303026f4"
+    }
+  ]
+}

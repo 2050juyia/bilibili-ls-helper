@@ -1,0 +1,15 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B站小黄鸭插帧助手 · 安装图解</title><style>
+*{box-sizing:border-box}body{margin:0;background:#edf5ed;color:#173b32;font:16px/1.7 'Microsoft YaHei',system-ui,sans-serif}
+header{max-width:1040px;margin:32px auto 0;padding:0 24px}h1{font-size:29px;margin:0 0 8px}p{margin:8px 0 18px;color:#4d695f}
+nav{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}button,.action{border:1px solid #bdd4c3;border-radius:10px;padding:9px 18px;font:inherit;background:white;color:#173b32;text-decoration:none;cursor:pointer}
+button[aria-selected=true]{background:#23745a;color:white;border-color:#23745a}.downloads{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}main{max-width:1040px;margin:auto;padding:0 24px}img{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 8px 26px #163c3214}
+footer{max-width:1040px;margin:24px auto;padding:0 24px 48px;color:#4d695f}a{color:#23745a}button:focus-visible,a:focus-visible{outline:3px solid #d8ae43;outline-offset:4px}
+</style><header><h1>从安装包安装 · Edge / Chrome</h1><p>Windows 电脑适用。先选浏览器，再按图操作；两份长图均可保存。插件需配合 Lossless Scaling 使用。</p>
+<nav role="tablist" aria-label="选择浏览器"><button role="tab" aria-selected="true" data-browser="edge">Microsoft Edge</button><button role="tab" aria-selected="false" data-browser="chrome">Google Chrome</button></nav>
+<div class="downloads"><a class="action" id="png-download" href="assets/install-edge.png" download>保存 Edge 安装长图</a><a class="action" href="https://pan.quark.cn/s/4603da61b708" target="_blank" rel="noreferrer">获取插件安装包</a></div></header>
+<main><img id="guide" src="assets/install-edge.png" alt="Edge 从ZIP安装B站小黄鸭插帧助手：下载、解压、加载文件夹与推荐设置"></main>
+<footer><p>浏览器界面采用官方文档截图；文件夹和推荐设置面板为教学示意，并非本轮实机安装截图。按钮位置、译名可能随浏览器版本变化。</p>
+<p>完整文字教程：<a href="install-edge.zh-CN.md">Edge</a> · <a href="install-chrome.zh-CN.md">Chrome</a> · <a href="assets/SOURCES.md">图源与复现说明</a></p>
+<p>找不到 manifest？先在文件资源管理器核对目录；浏览器的文件夹选择窗口可能只显示 icons，这是正常的。加载后应保留解压目录。</p></footer>
+<script>for(const b of document.querySelectorAll('[data-browser]'))b.addEventListener('click',()=>{let n=b.dataset.browser,label=n==='edge'?'Edge':'Chrome';for(const x of document.querySelectorAll('[data-browser]'))x.setAttribute('aria-selected',String(x===b));let img=document.getElementById('guide');img.src='assets/install-'+n+'.png';img.alt=label+' 从ZIP安装教程';let a=document.getElementById('png-download');a.href=img.src;a.textContent='保存 '+label+' 安装长图';});</script></html>

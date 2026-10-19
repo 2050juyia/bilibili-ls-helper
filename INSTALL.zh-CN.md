@@ -4,6 +4,8 @@
 
 Windows桌面版 Edge、Chrome 均已有实际使用成功记录；Chrome 由用户于2026-10-19实测反馈。其他浏览器尚未完成验证，具体版本和设备差异仍以实际效果为准。
 
+配套图文教程：[Edge](https://github.com/2050juyia/bilibili-ls-helper/blob/main/docs/install-edge.zh-CN.md) / [Chrome](https://github.com/2050juyia/bilibili-ls-helper/blob/main/docs/install-chrome.zh-CN.md)。
+
 ## 安装
 
 1. 将本包解压到固定目录，不要直接在压缩包中运行。

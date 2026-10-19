@@ -9,6 +9,8 @@
 - **安装包与说明：[夸克网盘下载](https://pan.quark.cn/s/4603da61b708)**。
 - 源码、安装说明和版本记录：[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)。
 
+第一次安装可先看：**[Edge 图文教程](docs/install-edge.zh-CN.md)** / **[Chrome 图文教程](docs/install-chrome.zh-CN.md)**。每份都有可保存的安装长图，覆盖解压、加载正确文件夹和推荐设置。
+
 当前版本为 **1.3.13**。请下载按版本命名的 `bilibili-danmaku-assistant-v1.3.13.zip`，并按以下步骤安装：
 
 1. 解压到一个以后不会删除或移动的固定文件夹。
@@ -113,6 +115,8 @@ python scripts/package.py
 打包脚本读取**已提交的 HEAD**，不是未提交工作区。先提交本次公开内容，再生成包，核对版本、构建提交和SHA256。大型测试产物、浏览器配置和日志留在忽略的工作目录，不加入仓库。
 
 本公开源码包含无需第三方依赖的 Node.js 测试。早期依赖特定浏览器配置或旧开发历史的辅助脚本没有随包发布；`scripts/passive-frame-audit.js` 是供开发者使用的被动检查工具，不由扩展加载。受控检查的边界见 `TEST-REPORT.md`，它们不等于小黄鸭在所有设备上的实测结果。
+
+安装教程的图片可用 `python scripts/render-install-guides.py` 重新生成，额外依赖仅为Pillow，详见 `scripts/requirements-docs.txt` 和 [图源与复现说明](docs/assets/SOURCES.md)。这不是插件运行或普通安装所需的依赖。
 
 ## 许可与名称
 

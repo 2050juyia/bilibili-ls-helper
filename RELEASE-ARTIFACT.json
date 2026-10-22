@@ -1,0 +1,12 @@
+{
+  "version": "1.4.5",
+  "sourceCommit": "0aea84aa795a07963478032896aaf64c49cb044e",
+  "localSnapshotCommit": "ba0c8edfdf9caaec8b2e7cb53c34fba6fc25ea19",
+  "archive": "bilibili-danmaku-assistant-v1.4.5.zip",
+  "path": "dist/bilibili-danmaku-assistant-v1.4.5.zip",
+  "bytes": 70287,
+  "sha256": "cebd50040758af1ff450de9198074fb9d02e9327922feca24498a059d57c9d16",
+  "runtimeFiles": 18,
+  "packaging": "Public installation instructions, MIT license and third-party notices; runtime bytes match local 1.4.5.",
+  "release": "https://github.com/2050juyia/bilibili-ls-helper/releases/tag/v1.4.5"
+}

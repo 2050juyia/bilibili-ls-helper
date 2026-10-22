@@ -19,11 +19,11 @@
         <label id="position-options" class="setting-row"><strong>固定位置</strong><select id="position" name="position"><option value="top">上方</option><option value="bottom">下方</option><option value="alternate">上下分配</option></select></label>
       </fieldset>
       <div class="rule"></div>
-      <label class="setting-row"><span><strong>减少页面动画</strong><small>选集图标与顶部轮播 · <span class="immediate">立即生效</span></small></span><input id="hide-playlist-indicator" class="toggle" role="switch" type="checkbox" disabled></label>
+      <label class="setting-row"><span><strong>减少页面动画</strong><small>选集、顶部与直播外围 · <span class="immediate">立即生效</span></small></span><input id="hide-playlist-indicator" class="toggle" role="switch" type="checkbox" disabled></label>
       <details class="info"><summary>使用说明</summary>
         <p>固定弹幕：将普通滚动弹幕转换为上方或下方的原生固定文字。密集时可能有部分被播放器省略；请允许B站显示对应位置的弹幕。</p>
-        <p>滚动弹幕：视频与普通文字弹幕合成更新，暂停时停止。不支持图片、特效和弹幕悬停操作；小黄鸭插帧效果需实测。</p>
-        <p class="icon-note">减少页面动画：屏蔽选集播放动态图标，并停用顶部 S16 等入口的循环轮播。保留入口、链接和切集功能，与弹幕总开关独立。</p>
+        <p>滚动弹幕：随视频帧合成更新，暂停时停止。点播支持普通文字，直播另支持图片表情；暂不支持其他特效和弹幕悬停操作。</p>
+        <p class="icon-note">减少页面动画：屏蔽选集动态图标、暂停顶部轮播，并在直播播放器全屏时隔离B站外围区域的更新。播放器和控件保留，退出全屏或关闭此项后恢复外围页面；与弹幕总开关独立。</p>
       </details>
     <section id="status" class="status" aria-live="polite"><strong id="status-title">正在读取设置…</strong><p id="status-detail" hidden></p></section>
     <button id="reload" type="button" disabled><span aria-hidden="true">↻</span> <span id="reload-label">刷新视频，应用设置</span></button>

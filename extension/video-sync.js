@@ -161,7 +161,7 @@
         if (recovery.phase !== 'exhausted') armRecovery(recovery);
         return;
       }
-      if (state && state.renderer === renderer && state.scheduler === renderer.frameScheduler && state.video === video && video.isConnected) {
+      if (state && state.renderer === renderer && state.scheduler === renderer.frameScheduler && state.container === container && state.video === video && video.isConnected) {
         if (video.paused && !state.surface.status().committed) state.requestUi?.();
         return;
       }
@@ -225,7 +225,7 @@
       function paint(now, metadata, videoFrame) {
         if (state !== s) return;
         try {
-          if (!video.isConnected || !container.isConnected || root.player?.danmaku?.getDanmakuX?.() !== renderer || renderer.frameScheduler !== scheduler) {
+          if (!video.isConnected || !container.isConnected || renderer.container !== container || root.player?.danmaku?.getDanmakuX?.() !== renderer || renderer.frameScheduler !== scheduler) {
             clearRecovery('renderer-changed', true);
             stop('播放器已更换，等待重新适配', false);
             attempt = 0; update(desired, root.player?.danmaku?.getDanmakuX?.()); return;

@@ -21,7 +21,8 @@ function harness() {
   const context2d = {}, textContext = {};
   for (const [target, id] of [[context2d, 'video'], [textContext, 'text']]) {
     for (const name of ['setTransform', 'clearRect', 'fillRect', 'save', 'restore', 'beginPath', 'rect', 'clip', 'drawImage', 'strokeText', 'fillText', 'strokeRect'])
-      target[name] = (...args) => { operations.push([name, ...args]); draws.push({ target: id, name, alpha: target.globalAlpha, args }); };
+      target[name] = (...args) => { operations.push([name, ...args]); draws.push({ target: id, name, alpha: target.globalAlpha,
+        strokeStyle: target.strokeStyle, lineWidth: target.lineWidth, args }); };
     target.measureText = () => ({ width: 100, actualBoundingBoxLeft: 0, actualBoundingBoxRight: 100, actualBoundingBoxAscent: -3, actualBoundingBoxDescent: 24 });
   }
   class OffscreenCanvas {
@@ -261,4 +262,57 @@ test('lost dense raster context fails before presentation and can release every 
   const before = h.presents.length; h.textContext.isContextLost = () => true;
   assert.throws(() => s.draw(), /文字画布上下文丢失/); assert.equal(h.presents.length, before);
   s.restore(); assert.equal(s.status().textCache.bytes, 0); assert(h.buffers.every(b => b.width === 1 && b.height === 1));
+});
+
+test('own border defaults to native cyan and converts numeric RGB including black into CSS colors', () => {
+  for (const [raw, expected] of [[undefined, '#66ffff'], [6750207, '#66ffff'], [0, '#000000'], [0x123456, '#123456'], ['#f00', '#f00']]) {
+    const h = harness(); h.textCss.opacity = '1'; h.item.textData.border = true;
+    if (raw !== undefined) h.item.textData.borderColor = raw;
+    h.create().draw();
+    const border = h.draws.find(d => d.name === 'strokeRect');
+    assert.equal(border.strokeStyle, expected); assert.equal(border.lineWidth, 1);
+    assert.deepEqual(border.args, [600.5, 5.5, 99, 24]);
+    assert.equal(h.presents.length, 1);
+  }
+  const h = harness(); h.item.textData.border = true; h.item.textData.borderColor = 'transparent'; h.create().draw();
+  assert(!h.draws.some(d => d.name === 'strokeRect'));
+});
+
+test('computed native solid border takes precedence and preserves width, geometry and text padding', () => {
+  const h = harness(); h.textCss.opacity = '1'; h.item.textData.border = true; h.item.textData.borderColor = 0xff0000;
+  Object.assign(h.textCss, { borderTopStyle: 'solid', borderTopColor: 'rgb(102, 255, 255)', borderTopWidth: '2px', borderLeftWidth: '2px' });
+  h.create().draw();
+  const border = h.draws.find(d => d.name === 'strokeRect');
+  assert.equal(border.strokeStyle, 'rgb(102, 255, 255)'); assert.equal(border.lineWidth, 2);
+  assert.deepEqual(border.args, [601, 6, 98, 23]);
+  assert.deepEqual(h.draws.find(d => d.name === 'fillText').args, ['ordinary', 602, 7]);
+});
+
+test('native outline is included in sprite bounds and opacity applies once to the complete cached comment', () => {
+  const h = harness(); h.item.moveDistance = 0; h.textCss.opacity = '0.36';
+  Object.assign(h.textCss, { outlineStyle: 'solid', outlineColor: 'rgb(0, 174, 236)', outlineWidth: '6px', outlineOffset: '12px' });
+  const s = h.create(); s.draw();
+  const border = h.draws.find(d => d.name === 'strokeRect');
+  assert.equal(border.strokeStyle, 'rgb(0, 174, 236)'); assert.equal(border.lineWidth, 6);
+  assert.equal(border.alpha, 1); assert.equal(border.target, 'text');
+  assert.deepEqual(border.args, [685, -10, 130, 55]);
+  const tile = h.buffers[2], transform = h.draws.find(d => d.name === 'setTransform' && d.target === 'text').args;
+  assert(transform[4] + 682 * 2 >= 0 && transform[5] + -13 * 2 >= 0, 'outline top/left must fit the cached tile');
+  assert(transform[4] + 818 * 2 <= tile.width && transform[5] + 48 * 2 <= tile.height, 'outline bottom/right must fit the cached tile');
+  const before = h.draws.length; s.draw();
+  const next = h.draws.slice(before);
+  assert(!next.some(d => d.name === 'strokeRect'));
+  const copied = next.find(d => d.name === 'drawImage' && d.args[0] === tile);
+  assert.equal(copied.alpha, 0.36); assert.equal(s.status().textCache.hits, 1); assert.equal(h.presents.length, 2);
+});
+
+test('own border color changes including zero invalidate a retained sprite without adding presentations', () => {
+  const h = harness(); h.item.textData.border = true;
+  const s = h.create(); s.draw(); assert.equal(s.status().textCache.builds, 1);
+  h.item.textData.borderColor = 0; s.draw();
+  assert.equal(s.status().textCache.builds, 2); assert.equal(h.draws.filter(d => d.name === 'strokeRect').at(-1).strokeStyle, '#000000');
+  h.item.element.style = { cssText: 'outline: 2px solid blue' };
+  Object.assign(h.textCss, { outlineStyle: 'solid', outlineWidth: '2px', outlineColor: 'blue' }); s.draw();
+  assert.equal(s.status().textCache.builds, 3); assert.equal(h.draws.filter(d => d.name === 'strokeRect').at(-1).strokeStyle, 'blue');
+  assert.equal(h.presents.length, 3);
 });

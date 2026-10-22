@@ -98,8 +98,20 @@ test("supported routes and settings validation", () => {
   assert.ok(core.isVideoPage("https://www.bilibili.com/video/BV1?p=2"));
   assert.ok(core.isVideoPage("https://www.bilibili.com/bangumi/play/ep1"));
   assert.equal(core.isVideoPage("https://www.bilibili.com/"), false);
+  assert.equal(core.isVideoPage('https://live.bilibili.com/video/BV1'), false);
+  assert.equal(core.isVideoPage('https://www.bilibili.com.evil.test/video/BV1'), false);
+  assert.equal(core.isVideoPage('http://www.bilibili.com/video/BV1'), false);
   assert.deepEqual(core.normalizeSettings({ enabled: "no", position: "bad" }), core.defaults);
   assert.equal(core.pageKey("https://www.bilibili.com/video/BV1?p=2&t=10"), "/video/BV1?p=2");
+});
+test('live room routes are explicitly separated from VOD and restricted to the live HTTPS origin', () => {
+  for (const url of ['https://live.bilibili.com/13308358', 'https://live.bilibili.com/1/?live_from=1', 'https://live.bilibili.com/blanc/123#player']) {
+    assert.equal(core.isLivePage(url), true, url);
+    assert.equal(core.isVideoPage(url), false, url);
+  }
+  for (const url of ['https://live.bilibili.com/', 'https://live.bilibili.com/p/eden/area-tags', 'https://live.bilibili.com/0',
+    'https://www.bilibili.com/13308358', 'https://live.bilibili.com.evil.test/13308358', 'http://live.bilibili.com/13308358',
+    'https://live.bilibili.com/13308358/more', 'invalid']) assert.equal(core.isLivePage(url), false, url);
 });
 test("empty and oversize data leave video loading independent", () => {
   assert.equal(core.rewriteProtobuf(new Uint8Array()).error, null);

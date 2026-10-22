@@ -1,0 +1,27 @@
+{
+  "version": "1.4.5",
+  "localSnapshotCommit": "ba0c8edfdf9caaec8b2e7cb53c34fba6fc25ea19",
+  "localRuntimeSourceCommit": "77014907f5dd4ebd9c6be0fbc8f15b1195d44d2f",
+  "snapshotType": "Public source snapshot on existing GitHub history; not an import of the full local development history.",
+  "extensionSha256": {
+    "bridge.js": "40b663d95835a6a40a3085bb91385507820cd004c4086fe0a4689eb97e4469f4",
+    "compositor.js": "2bdfbc8c51ba3423fffa192ed6810e47dc4ab64fdc2db4ecd8624c28f0b47d35",
+    "core.js": "9ac4fe56b1e23702ee0e4a61e7747091f575ff7026b146d5663e4a505e327fd6",
+    "hook.js": "40a6b9d82c3b1f0c5ed3e60efd992cfc45ddb15e2a5c9602d10db5d64a001a38",
+    "icons/icon128.png": "4fdad1de5d8ac0bdbf5677cb03f38617aa6fa67d385e65174aebd6ff654e802c",
+    "icons/icon16.png": "c301a605d42b4980b799b6cd4a59c9dacb3e9fb29d5476681f51eec7fd7f5d10",
+    "icons/icon32.png": "41e0b9879856851eab328d2ba681d0497301d27ef06ecb7f1fe5122b47eff06c",
+    "icons/icon48.png": "02b384918dbc1a6e44ec81bace55a198861ebe6c3ff39af91c634db0e33be9b9",
+    "live-compositor.js": "7fc8df3f55406ea3b98f9237b0a77baf539939feccf653d3a896a622ba9fb5f7",
+    "live-periphery.js": "623647f2220d7e2f3ec7f77369d935fccbd914368383b79c34ae691a097c38cc",
+    "live-quality.js": "002dcae191ef49049c649a280b50b6b71ddf9cb5644f501ed1a1d281e8ddc4f7",
+    "live-sync.js": "5029947f8d999ece1eed4ead84c6e3c6aed7be03ce2b51fd89551dea70732e15",
+    "manifest.json": "d41d5a41dc9cc8e91318044e7b605b87d9965b444894f89ed93f9a1b61e0f9a6",
+    "playlist-indicator.js": "435ef4884e0f00e739971ba827816d6c3fb2c2beaaac4c529db8b8593d93bc1f",
+    "popup.css": "c3b41658a09027232a3aa2cdd35504228415f50c8dd64fb90d704b1608ed6cfe",
+    "popup.html": "05eb912d7887349c8e287a5cea9263b8c3b669c1721a56d15cdfd9d5d7cf637a",
+    "popup.js": "f128f6fed2929700e6976341d4765eae570dfc9cf9ad6009a83b5ff598b0e208",
+    "video-sync.js": "42ca127b3656ad36663d9b6a99ab8a149078b629a852de4ee2eaeab04b133b15"
+  },
+  "releasePackaging": "The public ZIP uses this repository package.py to include public installation instructions, LICENSE and THIRD_PARTY_NOTICES. Its documentation and ZIP hash differ from the local development archive; all extension bytes are identical."
+}

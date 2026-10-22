@@ -2,16 +2,19 @@
 
 适用于Windows电脑上的Google Chrome。本插件需要配合Lossless Scaling（小黄鸭）使用，本身不生成中间帧。
 
+当前版本为 **1.4.5**，支持视频、番剧与直播。下方长图保留1.3.13历史截图与图源，安装基本操作不变；图中旧版本、旧下载入口以本文的Release说明为准。1.3.13的用户使用反馈不等于新增直播功能已在所有Chrome版本逐项验证。
+
 ![Chrome从ZIP安装与设置图解](assets/install-chrome.png)
 
 Chrome浏览器部分使用用户提供的真实截图，截图中的插件版本为1.3.13；文件夹和推荐设置面板为教学示意，并非本轮重新安装的完整过程截图。浏览器版本不同，按钮文字和位置可能略有变化。[图源与复现说明](assets/SOURCES.md)
 
 ## 1. 下载并解压
 
-两种获取方式任选其一：
+推荐使用Release安装包，也可从源码安装：
 
-- **夸克安装包：**打开[夸克网盘下载页](https://pan.quark.cn/s/4603da61b708)，下载 `bilibili-danmaku-assistant-v1.3.13.zip`。
-- **GitHub源码包：**打开[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)，点击 **Code → Download ZIP**。解压后需加载里面的 `extension` 文件夹；不要选择整个源码目录。GitHub目前没有已发布的Release安装包。
+- **Release安装包（推荐）：**打开[最新版发布页](https://github.com/2050juyia/bilibili-ls-helper/releases/latest)，或直接下载 [bilibili-danmaku-assistant-v1.4.5.zip](https://github.com/2050juyia/bilibili-ls-helper/releases/download/v1.4.5/bilibili-danmaku-assistant-v1.4.5.zip)。
+- **GitHub源码包：**打开[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)，点击 **Code → Download ZIP**。解压后加载里面的 `extension` 文件夹，不要选择整个源码目录。
+- **备用旧入口：**[夸克网盘](https://pan.quark.cn/s/4603da61b708)可能仍是旧版，未确认已同步更新；以Release版本为准。
 
 在Windows文件资源管理器中右键点击ZIP，选择「全部解压缩／全部解压」。解压到以后不会随手清理的固定目录，例如 `D:\BrowserExtensions`。安装后仍要保留解压出的文件夹；不能只留下ZIP，也不要随意移动文件夹。
 
@@ -20,10 +23,10 @@ Chrome浏览器部分使用用户提供的真实截图，截图中的插件版�
 1. 把 `chrome://extensions` 复制到Chrome地址栏，按回车。
 2. 开启右上角的「开发者模式」。
 3. 点击页面出现的「加载已解压的扩展程序」。
-4. 根据下载来源选择目录：**夸克安装包选 `bilibili-fixed-danmaku`；GitHub源码包选解压目录里的 `extension`**。确认选中的文件夹直接包含 `manifest.json`。
+4. 根据下载来源选择目录：**Release安装包选 `bilibili-fixed-danmaku`；GitHub源码包选解压目录里的 `extension`**。确认选中的文件夹直接包含 `manifest.json`。
 
 ```text
-夸克包：bilibili-fixed-danmaku/       ← 选择这一层
+Release包：bilibili-fixed-danmaku/    ← 选择这一层
 GitHub源码包：源码解压目录/extension/  ← 选择这一层
 
 所选目录内应直接包含：manifest.json、popup.html、icons/ 等
@@ -37,7 +40,7 @@ Windows若隐藏扩展名，文件可能显示为 `manifest`；这里只用它�
 
 ## 3. 找到插件并应用设置
 
-Chrome出现「B站小黄鸭插帧助手」卡片后，先打开一个B站视频页。点击浏览器工具栏的拼图形「扩展程序」菜单，找到这个名称并打开；可点击旁边的图钉，将插件固定在工具栏。
+Chrome出现「B站小黄鸭插帧助手」卡片后，先打开一个B站视频或直播页。点击浏览器工具栏的拼图形「扩展程序」菜单，找到这个名称并打开；可点击旁边的图钉，将插件固定在工具栏。
 
 在插件面板中依次操作：
 
@@ -50,9 +53,11 @@ Chrome出现「B站小黄鸭插帧助手」卡片后，先打开一个B站视频
 
 「固定弹幕」是可选显示方式，会把普通滚动弹幕改成固定文字；密集时可能有部分漏显示。没有这个需求，直接使用滚动弹幕。
 
+直播选择「滚动弹幕」可让文字和图片表情随视频帧更新；动图依赖浏览器解码与资源限额，失败显示占位或降级静帧。「减少页面动画」还会在直播播放器全屏时隔离已识别的B站外围区域，退出全屏或关闭设置后恢复。自己发送的弹幕保留原生蓝框。直播其他互动特效及小黄鸭产生的文字伪影不在保证范围内，完整限制见[README](../README.md#支持范围与限制)。
+
 ## 常见问题
 
-**提示清单文件缺失或无法加载？** 多数是选错目录。夸克包选 `bilibili-fixed-danmaku`，GitHub的 **Code → Download ZIP** 源码包选其中的 `extension`；两者都要选直接包含 `manifest.json` 的那一层。
+**提示清单文件缺失或无法加载？** 多数是选错目录。Release包选 `bilibili-fixed-danmaku`，GitHub的 **Code → Download ZIP** 源码包选其中的 `extension`；两者都要选直接包含 `manifest.json` 的那一层。
 
 **装好却找不到图标？** 点击Chrome工具栏的「扩展程序」菜单，找到「B站小黄鸭插帧助手」并点图钉；没固定图标不代表没安装。
 

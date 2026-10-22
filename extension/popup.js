@@ -3,9 +3,9 @@ const $ = id => document.getElementById(id);
 const enabled = $("enabled"), motion = $("motion"), position = $("position");
 const hidePlaylistIndicator = $("hide-playlist-indicator"), reload = $("reload");
 const controls = [enabled, hidePlaylistIndicator, motion, position];
-let tab = null, isVideo = false, loaded = false, needsRefresh = false;
+let tab = null, isVideo = false, isLive = false, loaded = false, needsRefresh = false;
 let storedSettings = {}, animationSaved = false;
-let pendingSave = Promise.resolve(), saveError = false, saving = 0;
+let pendingSave = Promise.resolve(), saveError = false, saving = 0, saveRevision = 0;
 $("version").textContent = chrome.runtime.getManifest().version;
 
 function notice(title, detail = "", tone = "normal") {
@@ -26,8 +26,10 @@ function updateNotice() {
   updateControls();
   if (saveError) return notice("设置保存失败", "请重试刚才的设置，或重新打开面板。", "error");
   if (saving) return notice("正在保存设置…");
-  if (!isVideo) return notice("请打开B站视频或番剧播放页。", "", "warning");
+  if (!isVideo) return notice("请打开B站视频、番剧或直播间。", "", "warning");
   if (needsRefresh) return notice("设置已保存，请刷新视频应用。", "", "warning");
+  if (isLive && enabled.checked && !animationSaved)
+    return notice("直播支持文字与表情同步。", "弹幕层内的其他互动特效暂不显示；礼物等独立动画不在同步范围内。");
   notice(animationSaved ? "页面动画设置已保存，立即生效。" : "");
 }
 async function save(event) {
@@ -35,16 +37,22 @@ async function save(event) {
   const settings = { ...storedSettings, enabled: enabled.checked, hidePlaylistIndicator: hidePlaylistIndicator.checked, motion: motion.value, position: position.value };
   storedSettings = settings;
   if (event.target !== hidePlaylistIndicator) needsRefresh = true;
+  const revision = ++saveRevision;
   saving++; saveError = false; updateNotice();
-  // Keep writes ordered; a failed write must not prevent a later retry.
-  const write = pendingSave.catch(() => {}).then(() => chrome.storage.local.set({ bfdSettings: settings }));
-  pendingSave = write;
+  // Submit every snapshot while the popup is alive. Waiting for the previous
+  // acknowledgement can lose later changes when the popup closes mid-save.
+  let write;
+  try { write = Promise.resolve(chrome.storage.local.set({ bfdSettings: settings })); }
+  catch (error) { write = Promise.reject(error); }
+  pendingSave = Promise.allSettled([pendingSave, write]).then(() => {});
   try {
     await write;
-    saveError = false;
-    animationSaved = event.target === hidePlaylistIndicator;
-    $("save-result").textContent = event.target === hidePlaylistIndicator ? "页面动画设置已保存，立即生效。" : "设置已保存，刷新后完整应用。";
-  } catch { saveError = true; $("save-result").textContent = "设置保存失败，请重试。"; }
+    if (revision === saveRevision) {
+      saveError = false;
+      animationSaved = event.target === hidePlaylistIndicator;
+      $("save-result").textContent = event.target === hidePlaylistIndicator ? "页面动画设置已保存，立即生效。" : "设置已保存，刷新后完整应用。";
+    }
+  } catch { if (revision === saveRevision) { saveError = true; $("save-result").textContent = "设置保存失败，请重试。"; } }
   finally { saving--; updateNotice(); }
 }
 async function init() {
@@ -61,7 +69,8 @@ async function init() {
   }
   try { [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); }
   catch { tab = null; }
-  isVideo = /^https:\/\/www\.bilibili\.com\/(?:video\/|bangumi\/play\/)/.test(tab?.url || "");
+  isLive = /^https:\/\/live\.bilibili\.com\/(?:blanc\/)?[1-9]\d*\/?(?:[?#]|$)/.test(tab?.url || "");
+  isVideo = /^https:\/\/www\.bilibili\.com\/(?:video\/|bangumi\/play\/)/.test(tab?.url || "") || isLive;
   updateControls();
   updateNotice();
 }

@@ -1,15 +1,17 @@
 (function () {
   "use strict";
   const CHANNEL = "bfd-fixed-v1";
-  let status = null;
+  let status = null, settingsRevision = 0;
   function post(type, payload) {
     window.postMessage({ channel: CHANNEL, type, payload }, location.origin);
   }
   async function syncSettings() {
+    const initial = settingsRevision;
     try {
       const values = await chrome.storage.local.get("bfdSettings");
-      post("settings", values.bfdSettings || { enabled: true, position: "top" });
-    } catch { post("get-status"); }
+      if (settingsRevision === initial)
+        post("settings", values.bfdSettings || { enabled: true, position: "top" });
+    } catch { if (settingsRevision === initial) post("get-status"); }
   }
   window.addEventListener("message", (event) => {
     if (event.source !== window || event.origin !== location.origin ||
@@ -19,8 +21,10 @@
       status = value;
   });
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes.bfdSettings)
+    if (area === "local" && changes.bfdSettings) {
+      settingsRevision++;
       post("settings", changes.bfdSettings.newValue);
+    }
   });
   chrome.runtime.onMessage.addListener((message, _sender, reply) => {
     if (message?.type !== "bfd-get-status") return;

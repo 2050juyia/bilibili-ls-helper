@@ -1,10 +1,10 @@
 # B站小黄鸭插帧助手：安装与使用
 
-本包版本：1.3.13。下载入口：https://pan.quark.cn/s/4603da61b708 。插件需配合 Lossless Scaling（小黄鸭）使用，本身不生成中间帧。
+本包版本：1.4.5。最新版见 [GitHub Releases](https://github.com/2050juyia/bilibili-ls-helper/releases/latest)，可直接下载 [1.4.5安装包](https://github.com/2050juyia/bilibili-ls-helper/releases/download/v1.4.5/bilibili-danmaku-assistant-v1.4.5.zip)。[夸克网盘](https://pan.quark.cn/s/4603da61b708)保留为备用旧入口，未确认已更新，以Release版本为准。插件需配合 Lossless Scaling（小黄鸭）使用，本身不生成中间帧。
 
-Windows桌面版 Edge、Chrome 均已有实际使用成功记录；Chrome 由用户于2026-10-19实测反馈。其他浏览器尚未完成验证，具体版本和设备差异仍以实际效果为准。
+Windows桌面版 Edge、Chrome 均已有实际使用成功记录；Chrome 的2026-10-19反馈针对1.3.13，近期直播适配与自动验收主要使用Edge。其他浏览器尚未完成验证，具体版本和设备差异仍以实际效果为准。
 
-配套图文教程：[Edge](https://github.com/2050juyia/bilibili-ls-helper/blob/main/docs/install-edge.zh-CN.md) / [Chrome](https://github.com/2050juyia/bilibili-ls-helper/blob/main/docs/install-chrome.zh-CN.md)。
+配套图文教程：[Edge](https://github.com/2050juyia/bilibili-ls-helper/blob/main/docs/install-edge.zh-CN.md) / [Chrome](https://github.com/2050juyia/bilibili-ls-helper/blob/main/docs/install-chrome.zh-CN.md)。长图保留旧版截图与图源，安装基本操作未变，下载版本以本文为准。
 
 ## 安装
 
@@ -12,12 +12,12 @@ Windows桌面版 Edge、Chrome 均已有实际使用成功记录；Chrome 由用
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。
 3. 开启「开发者模式」，点击「加载已解压的扩展程序」。
 4. 选择直接包含 `manifest.json` 的 `bilibili-fixed-danmaku` 文件夹。
-5. 刷新已经打开的B站视频页。
+5. 刷新已经打开的B站视频或直播页。
 6. 在浏览器扩展菜单中找到「B站小黄鸭插帧助手」打开设置，也可将图标固定到工具栏。
 
 选择文件夹时，应直接看到 `manifest.json`；不要选择ZIP或上一级目录。加载后仍需保留解压目录。
 
-从仓库源码安装时，加载 `extension` 文件夹。普通使用不需要安装 Node.js、Python 或任何 npm 依赖。
+上述文件夹名称对应Release安装包。从仓库的 **Code → Download ZIP** 源码包安装时，加载 `extension` 文件夹。普通使用不需要安装 Node.js、Python 或任何 npm 依赖。
 
 ## 按视频演示设置
 
@@ -31,8 +31,14 @@ Windows桌面版 Edge、Chrome 均已有实际使用成功记录；Chrome 由用
 
 ## 范围
 
-适用于电脑浏览器中的B站普通视频与番剧播放页。滚动模式主要支持普通文字弹幕，不合成图片、渐变和特效弹幕，不支持弹幕悬停等文字层交互。插件不处理网络缓冲，不保证所有设备或故障都能恢复补帧。
+适用于电脑浏览器中的B站普通视频、番剧及数字房间号直播页。点播滚动模式主要支持普通文字；直播还支持静态表情及资源、解码能力允许的GIF／APNG／WebP动图，随视频帧更新。加载或解码失败显示占位；动态图片过大或解码能力不足时使用静帧。渐变、其他特效和弹幕悬停等交互暂不支持，直播弹幕层内其他互动特效会暂时不显示，礼物等独立动画不在同步保证范围内。
+
+「减少页面动画」会处理选集动态图标与顶部部分轮播；在直播播放器全屏时还隔离已识别的B站外围区域，退出全屏或关闭该设置后恢复。自己发送弹幕的原生蓝框会随内容合成。直播启用期间，手动画质切换使用完整切流以刷新备用线路，可能短暂重新缓冲，不强制更改所选画质。
+
+直播呈现异常存在一次短暂合成状态恢复尝试：同一视频实例最多一次，开关助手或切换模式不重置，不保证恢复。插件不消除所有网络缓冲、显卡负载或小黄鸭文字伪影，也不保证所有设备或故障都能恢复补帧。
 
 推荐选择「滚动弹幕」，它也保留原有固定弹幕。只有想把滚动弹幕转换成固定文字时，才选择「固定弹幕」，并在B站允许显示对应位置的固定弹幕。密集场景可能漏显示部分内容；没有这个需求，直接使用滚动模式。初次安装请手动确认模式。停用或卸载后要刷新已有视频页。
 
 若仍无效，记录浏览器/插件/小黄鸭版本、捕获方式与倍数、视频及时间点、弹幕模式和具体表现，再通过仓库 Issues 反馈。不要上传Cookie、账号凭据或完整浏览器配置。
+
+1.4.5本轮修复：离场慢表情释放加载名额、同一播放器替换弹幕容器后重新适配，以及快速修改后关闭面板时的设置保存丢失。详情见仓库的 `RELEASE_NOTES_v1.4.5.md`。

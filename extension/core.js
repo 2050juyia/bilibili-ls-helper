@@ -18,8 +18,17 @@
     return u.pathname + "?p=" + (u.searchParams.get("p") || "1");
   }
   function isVideoPage(url) {
-    try { return /^\/(?:video\/|bangumi\/play\/)/.test(new URL(url).pathname); }
+    try {
+      const u = new URL(url);
+      return u.protocol === 'https:' && u.hostname === 'www.bilibili.com' && /^\/(?:video\/|bangumi\/play\/)/.test(u.pathname);
+    }
     catch { return false; }
+  }
+  function isLivePage(url) {
+    try {
+      const u = new URL(url);
+      return u.protocol === 'https:' && u.hostname === 'live.bilibili.com' && /^\/(?:blanc\/)?[1-9]\d*\/?$/.test(u.pathname);
+    } catch { return false; }
   }
   function endpointKind(value, base) {
     try {
@@ -233,7 +242,7 @@
     } catch (error) { return { ...unchanged, error: error.message }; }
   }
   const api = Object.freeze({
-    defaults, normalizeSettings, pageKey, isVideoPage, endpointKind,
+    defaults, normalizeSettings, pageKey, isVideoPage, isLivePage, endpointKind,
     rewriteProtobuf, rewriteXml, broadcastEndpoint, rewriteBroadcast, rewriteSelf
   });
   if (typeof module === "object" && module.exports) module.exports = api;

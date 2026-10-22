@@ -54,6 +54,28 @@
       clearSprites();
     }
     host.appendChild(canvas);
+    function ownFrames(css, data, width, height) {
+      const frames = [], borderWidth = parseFloat(css.borderTopWidth) || 0;
+      if (css.borderTopStyle === 'solid' && borderWidth > 0) {
+        frames.push({ x: borderWidth / 2, y: borderWidth / 2, width: width - borderWidth, height: height - borderWidth,
+          lineWidth: borderWidth, color: css.borderTopColor });
+      }
+      const outlineWidth = parseFloat(css.outlineWidth) || 0;
+      if (css.outlineStyle === 'solid' && outlineWidth > 0) {
+        const offset = (parseFloat(css.outlineOffset) || 0) + outlineWidth / 2;
+        frames.push({ x: -offset, y: -offset, width: width + offset * 2, height: height + offset * 2,
+          lineWidth: outlineWidth, color: css.outlineColor });
+      }
+      if (!frames.length && data.border && data.borderColor !== 'transparent') {
+        // The native engine stores RGB as a number and defaults own comments
+        // to 0x66ffff. Canvas strokeStyle requires a CSS color, not that number.
+        const raw = data.borderColor;
+        const color = typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw <= 0xffffff
+          ? '#' + raw.toString(16).padStart(6, '0') : typeof raw === 'string' && raw ? raw : '#66ffff';
+        frames.push({ x: .5, y: .5, width: width - 1, height: height - 1, lineWidth: 1, color });
+      }
+      return frames;
+    }
     function paintText(target, cached, item, left, top) {
       if (target.font !== cached.font) target.font = cached.font;
       target.textBaseline = 'top'; target.textAlign = 'left';
@@ -64,9 +86,9 @@
         if (cached.shadow) target.strokeText(line, left + cached.paddingX, top + cached.paddingY + index * cached.lineHeight);
         target.fillText(line, left + cached.paddingX, top + cached.paddingY + index * cached.lineHeight);
       });
-      if (item.textData.border) {
-        target.strokeStyle = item.textData.borderColor || cached.color; target.lineWidth = 1;
-        target.strokeRect(left, top, cached.width, cached.height);
+      for (const frame of cached.frames) {
+        target.strokeStyle = frame.color; target.lineWidth = frame.lineWidth;
+        target.strokeRect(left + frame.x, top + frame.y, frame.width, frame.height);
       }
     }
     function textBounds(cached) {
@@ -80,6 +102,12 @@
           bounds.top = Math.min(bounds.top, y - (m.actualBoundingBoxAscent || 0));
           bounds.bottom = Math.max(bounds.bottom, y + (m.actualBoundingBoxDescent ?? cached.lineHeight));
         });
+        for (const frame of cached.frames) {
+          bounds.left = Math.min(bounds.left, frame.x - frame.lineWidth / 2);
+          bounds.top = Math.min(bounds.top, frame.y - frame.lineWidth / 2);
+          bounds.right = Math.max(bounds.right, frame.x + frame.width + frame.lineWidth / 2);
+          bounds.bottom = Math.max(bounds.bottom, frame.y + frame.height + frame.lineWidth / 2);
+        }
         cached.bounds = bounds;
       }
       return cached.bounds;
@@ -172,7 +200,7 @@
         if (!text) continue;
         let cached = textCache.get(item);
         const signature = (node.style?.cssText || '') + node.className +
-          `|${item.textData.color === 0}|${!!item.textData.border}|${item.textData.borderColor || ''}`;
+          `|${item.textData.color === 0}|${!!item.textData.border}|${item.textData.borderColor ?? ''}`;
         if (!cached || cached.node !== node || cached.signature !== signature || cached.layout !== layout || cached.text !== text) {
           if (cached) releaseSprite(cached);
           const css = getComputedStyle(node), rect = node.getBoundingClientRect();
@@ -180,8 +208,10 @@
             font: `${css.fontWeight} ${css.fontSize} ${css.fontFamily}`, display: css.display, opacity: +css.opacity,
             color: css.color, shadow: css.textShadow !== 'none', lineWidth: Math.max(1, parseFloat(css.fontSize) / 12),
             lineHeight: parseFloat(css.lineHeight) || parseFloat(css.fontSize) * 1.125,
-            paddingX: parseFloat(css.paddingLeft) || 0, paddingY: parseFloat(css.paddingTop) || 0,
+            paddingX: (parseFloat(css.paddingLeft) || 0) + (parseFloat(css.borderLeftWidth) || 0),
+            paddingY: (parseFloat(css.paddingTop) || 0) + (parseFloat(css.borderTopWidth) || 0),
             x: rect.x - dmBox.x, y: rect.y - dmBox.y, width: rect.width, height: rect.height };
+          cached.frames = ownFrames(css, item.textData, cached.width, cached.height);
           textCache.set(item, cached);
         }
         if (cached.display === 'none' || cached.opacity === 0) continue;
@@ -196,9 +226,9 @@
         context.globalAlpha = Math.max(0, Math.min(1, cached.opacity));
         // Even a few long, translucent comments can force expensive copies
         // from the shared mutable tile. Reuse those rasters at every density.
-        const cacheText = dense || (context.globalAlpha < 1 && (cached.shadow || item.textData.border));
+        const cacheText = dense || (context.globalAlpha < 1 && (cached.shadow || cached.frames.length));
         if (cacheText && paintSprite(cached, item, left, top, dpr, width, height)) { /* reused complete text */ }
-        else if (context.globalAlpha < 1 && (cached.shadow || item.textData.border)) paintGroup(cached, item, left, top, dpr, width, height);
+        else if (context.globalAlpha < 1 && (cached.shadow || cached.frames.length)) paintGroup(cached, item, left, top, dpr, width, height);
         else paintText(context, cached, item, left, top);
         comments++;
       }

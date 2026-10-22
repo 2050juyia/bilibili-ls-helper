@@ -58,6 +58,82 @@ function harness(options = {}) {
     listenerCount: () => [...events.values(), ...rootEvents.values()].reduce((n, set) => n + set.size, 0) };
 }
 const enabled = { enabled: true, motion: 'video-sync' };
+function trackContainerSurfaces(h) {
+  const surfaces = [], create = h.context.BFDCompositor.create;
+  h.context.BFDCompositor.create = function (renderer, video) {
+    const surface = create(renderer, video), originalDraw = surface.draw, originalRestore = surface.restore;
+    const record = { container: renderer.container, draws: 0, restores: 0, committed: false };
+    surfaces.push(record);
+    surface.draw = function (...args) {
+      assert.equal(record.restores, 0, 'released surfaces must never draw again');
+      const painted = Reflect.apply(originalDraw, this, args);
+      if (painted) { record.draws++; record.committed = true; }
+      return painted;
+    };
+    surface.restore = function (...args) { record.restores++; return Reflect.apply(originalRestore, this, args); };
+    surface.status = () => ({ surface: 'single-canvas', committed: record.committed });
+    return surface;
+  };
+  function replaceContainer() {
+    const previous = h.renderer.container, classes = new Set();
+    const replacement = { ...previous, classList: {
+      add: name => classes.add(name), remove: name => classes.delete(name), contains: name => classes.has(name)
+    } };
+    h.renderer.container = replacement;
+    return { previous, replacement, classes };
+  }
+  return { surfaces, replaceContainer };
+}
+function assertContainerRebound(h, tracked, target) {
+  assert(target.previous.isConnected && target.replacement.isConnected && h.video.isConnected);
+  assert.equal(h.creates(), 2); assert.equal(tracked.surfaces[0].restores, 1);
+  assert.equal(tracked.surfaces[1].container, target.replacement);
+  assert.equal(h.styles[0].isConnected, false); assert.equal(h.styles[1].isConnected, true);
+  assert(!h.classes.has('bfd-video-sync')); assert(target.classes.has('bfd-video-sync'));
+  assert.equal(h.timers.size, 0); assert.equal(h.starts(), 0);
+}
+test('a connected replacement danmaku container rebinds on update while the renderer, scheduler and playing video stay the same', () => {
+  const h = harness(), tracked = trackContainerSurfaces(h);
+  h.controller.update(enabled, h.renderer); h.frame(1);
+  const previousFrame = h.callbacks.values().next().value, target = tracked.replaceContainer();
+  h.controller.update(enabled, h.renderer);
+  assertContainerRebound(h, tracked, target);
+  assert.equal(h.callbacks.size, 1); assert.equal(h.uiCallbacks.size, 0);
+  const before = h.count(); previousFrame(1000, { mediaTime: 2 });
+  assert.equal(h.count(), before); assert.equal(h.callbacks.size, 1);
+  h.frame(1 + 1 / 24);
+  assert.equal(tracked.surfaces[0].draws, 1); assert.equal(tracked.surfaces[1].draws, 1);
+  assert.equal(h.callbacks.size, 1); assert.equal(h.uiCallbacks.size, 0); assert.equal(h.timers.size, 0);
+  h.controller.update({ enabled: false }, h.renderer);
+  assert.equal(tracked.surfaces[1].restores, 1); assert.equal(h.callbacks.size, 0); assert.equal(h.styles[1].isConnected, false);
+});
+test('the next video callback discovers a connected replacement container without an explicit settings update', () => {
+  const h = harness(), tracked = trackContainerSurfaces(h);
+  h.controller.update(enabled, h.renderer); h.frame(1);
+  const target = tracked.replaceContainer(); h.frame(1 + 1 / 24);
+  assertContainerRebound(h, tracked, target);
+  assert.equal(tracked.surfaces[0].draws, 1); assert.equal(tracked.surfaces[1].draws, 0);
+  assert.equal(h.callbacks.size, 1); assert.equal(h.uiCallbacks.size, 0);
+  h.frame(1 + 2 / 24);
+  assert.equal(tracked.surfaces[1].draws, 1); assert.equal(h.callbacks.size, 1);
+  assert.equal(h.uiCallbacks.size, 0); assert.equal(h.timers.size, 0);
+  h.controller.update({ enabled: false }, h.renderer);
+  assert.equal(tracked.surfaces[1].restores, 1); assert.equal(h.callbacks.size, 0); assert.equal(h.styles[1].isConnected, false);
+});
+test('a paused committed surface is released and repainted once when its connected container changes', () => {
+  const h = harness(), tracked = trackContainerSurfaces(h); h.video.paused = true;
+  h.controller.update(enabled, h.renderer); h.uiFrame();
+  assert(tracked.surfaces[0].committed); assert.equal(h.uiCallbacks.size, 0);
+  const target = tracked.replaceContainer(); h.controller.update(enabled, h.renderer);
+  assertContainerRebound(h, tracked, target);
+  assert.equal(h.callbacks.size, 0); assert.equal(h.uiCallbacks.size, 1);
+  h.uiFrame(); h.controller.update(enabled, h.renderer);
+  assert.equal(tracked.surfaces[0].draws, 1); assert.equal(tracked.surfaces[1].draws, 1);
+  assert.equal(h.controller.status().uiFrames, 1); assert.equal(h.uiCallbacks.size, 0);
+  assert.equal(h.callbacks.size, 0); assert.equal(h.timers.size, 0);
+  h.controller.update({ enabled: false }, h.renderer);
+  assert.equal(tracked.surfaces[1].restores, 1); assert.equal(h.styles[1].isConnected, false);
+});
 test('one callback per video frame, media-time motion, no native RAF start or independent position writes', () => {
   const h = harness(); h.controller.update(enabled, h.renderer);
   assert.equal(h.stops(), 1); assert.equal(h.starts(), 0); assert.equal(h.callbacks.size, 1);

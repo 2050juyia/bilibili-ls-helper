@@ -4,6 +4,32 @@
   if (!core || globalThis.__bfdHookInstalled) return;
   Object.defineProperty(globalThis, "__bfdHookInstalled", { value: true });
   const CHANNEL = "bfd-fixed-v1";
+  if (new URL(location.href).hostname === 'live.bilibili.com' && !core.isLivePage(location.href)) return;
+  // Live keeps the site's own receipt, filtering and layout. Only its final
+  // presentation is synchronized; never install VOD transport rewrites here.
+  if (core.isLivePage(location.href)) {
+    const live = globalThis.BFDLiveSync?.create();
+    let liveSettings = core.normalizeSettings(null);
+    function liveStatus() {
+      window.postMessage({ channel: CHANNEL, type: 'status', payload: {
+        enabled: liveSettings.enabled, motion: liveSettings.motion, position: liveSettings.position,
+        supportedPage: core.isLivePage(location.href), pageType: 'live', pageKey: core.pageKey(location.href),
+        converted: 0, total: 0, packets: 0, errors: 0, fetch: false, xhr: false, socket: false,
+        liveSync: live?.status() || { active: false, reason: '直播同步模块未就绪' }
+      } }, location.origin);
+    }
+    window.addEventListener('message', event => {
+      if (event.source !== window || event.origin !== location.origin || event.data?.channel !== CHANNEL) return;
+      if (event.data.type === 'settings') {
+        liveSettings = core.normalizeSettings(event.data.payload);
+        live?.update(liveSettings);
+        liveStatus();
+      } else if (event.data.type === 'get-status') liveStatus();
+    });
+    live?.update(liveSettings);
+    liveStatus();
+    return;
+  }
   let settings = core.normalizeSettings(null), revision = 0;
   let key = core.pageKey(location.href);
   let stats = freshStats();

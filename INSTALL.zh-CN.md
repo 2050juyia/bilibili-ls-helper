@@ -1,6 +1,8 @@
 # B站小黄鸭插帧助手：安装与使用
 
-本包版本：1.4.5。最新版见 [GitHub Releases](https://github.com/2050juyia/bilibili-ls-helper/releases/latest)，可直接下载 [1.4.5安装包](https://github.com/2050juyia/bilibili-ls-helper/releases/download/v1.4.5/bilibili-danmaku-assistant-v1.4.5.zip)。[夸克网盘](https://pan.quark.cn/s/4603da61b708)保留为备用旧入口，未确认已更新，以Release版本为准。插件需配合 Lossless Scaling（小黄鸭）使用，本身不生成中间帧。
+本包为基于1.4.5的1.4.6本地播放图标修复版。更新后重载扩展、完整刷新视频或直播页，打开“减少页面动画”即可应用共用播放指示图标规则。
+
+公开已发布版本可在 [GitHub Releases](https://github.com/2050juyia/bilibili-ls-helper/releases/latest) 查找，其中包含 [1.4.5安装包](https://github.com/2050juyia/bilibili-ls-helper/releases/download/v1.4.5/bilibili-danmaku-assistant-v1.4.5.zip)。[夸克网盘](https://pan.quark.cn/s/4603da61b708)为备用旧入口。插件需配合 Lossless Scaling（小黄鸭）使用。
 
 Windows桌面版 Edge、Chrome 均已有实际使用成功记录；Chrome 的2026-10-19反馈针对1.3.13，近期直播适配与自动验收主要使用Edge。其他浏览器尚未完成验证，具体版本和设备差异仍以实际效果为准。
 
@@ -41,4 +43,4 @@ Windows桌面版 Edge、Chrome 均已有实际使用成功记录；Chrome 的202
 
 若仍无效，记录浏览器/插件/小黄鸭版本、捕获方式与倍数、视频及时间点、弹幕模式和具体表现，再通过仓库 Issues 反馈。不要上传Cookie、账号凭据或完整浏览器配置。
 
-1.4.5本轮修复：离场慢表情释放加载名额、同一播放器替换弹幕容器后重新适配，以及快速修改后关闭面板时的设置保存丢失。详情见仓库的 `RELEASE_NOTES_v1.4.5.md`。
+1.4.5包含离场慢表情释放加载名额、同一播放器替换弹幕容器后重新适配，以及快速修改后关闭面板时的设置保存修复。详情见仓库的 `RELEASE_NOTES_v1.4.5.md`。

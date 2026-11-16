@@ -1,8 +1,15 @@
 {
-  "version": "1.4.5",
-  "localSnapshotCommit": "ba0c8edfdf9caaec8b2e7cb53c34fba6fc25ea19",
-  "localRuntimeSourceCommit": "77014907f5dd4ebd9c6be0fbc8f15b1195d44d2f",
-  "snapshotType": "Public source snapshot on existing GitHub history; not an import of the full local development history.",
+  "version": "1.4.6",
+  "basePublicCommit": "f168acfc95374cfcdc9245ea3e3d214cb6c82cba",
+  "baseExtensionTree": "9005679e0f66be2b2ea57b8de9871760b33b55ed",
+  "localBaselineSnapshotCommit": "ba0c8edfdf9caaec8b2e7cb53c34fba6fc25ea19",
+  "localBaselineRuntimeSourceCommit": "77014907f5dd4ebd9c6be0fbc8f15b1195d44d2f",
+  "changeScope": "Shared playback indicator suppression and popup text, with version increment.",
+  "modifiedExtensionFiles": [
+    "extension/manifest.json",
+    "extension/playlist-indicator.js",
+    "extension/popup.html"
+  ],
   "extensionSha256": {
     "bridge.js": "40b663d95835a6a40a3085bb91385507820cd004c4086fe0a4689eb97e4469f4",
     "compositor.js": "2bdfbc8c51ba3423fffa192ed6810e47dc4ab64fdc2db4ecd8624c28f0b47d35",
@@ -16,12 +23,12 @@
     "live-periphery.js": "623647f2220d7e2f3ec7f77369d935fccbd914368383b79c34ae691a097c38cc",
     "live-quality.js": "002dcae191ef49049c649a280b50b6b71ddf9cb5644f501ed1a1d281e8ddc4f7",
     "live-sync.js": "5029947f8d999ece1eed4ead84c6e3c6aed7be03ce2b51fd89551dea70732e15",
-    "manifest.json": "d41d5a41dc9cc8e91318044e7b605b87d9965b444894f89ed93f9a1b61e0f9a6",
-    "playlist-indicator.js": "435ef4884e0f00e739971ba827816d6c3fb2c2beaaac4c529db8b8593d93bc1f",
+    "manifest.json": "4bcfc41f939abda257c1d96cd227ee66f2c4466197cebdc690c506fe4cfb45be",
+    "playlist-indicator.js": "6c7163ad0dbe85547313bda3b1929a7c541b07f0e81cfb5783858e5c972533ea",
     "popup.css": "c3b41658a09027232a3aa2cdd35504228415f50c8dd64fb90d704b1608ed6cfe",
-    "popup.html": "05eb912d7887349c8e287a5cea9263b8c3b669c1721a56d15cdfd9d5d7cf637a",
+    "popup.html": "08f09e72a20e6dd07652109de9d6c711dd2f22ebb1c0895edc43cef33ffc442b",
     "popup.js": "f128f6fed2929700e6976341d4765eae570dfc9cf9ad6009a83b5ff598b0e208",
     "video-sync.js": "42ca127b3656ad36663d9b6a99ab8a149078b629a852de4ee2eaeab04b133b15"
   },
-  "releasePackaging": "The public ZIP uses this repository package.py to include public installation instructions, LICENSE and THIRD_PARTY_NOTICES. Its documentation and ZIP hash differ from the local development archive; all extension bytes are identical."
+  "releasePackaging": "Built from committed HEAD with scripts/package.py; release-manifest.json records the build commit and archive SHA256."
 }

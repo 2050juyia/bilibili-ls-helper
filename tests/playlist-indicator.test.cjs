@@ -58,7 +58,7 @@ async function harness(initial = true) {
 }
 test('removed or moved playlist stylesheet repairs itself using only root-direct and own-style observation', async () => {
   const h = await harness(), original = h.style(), css = original.textContent;
-  assert.match(css, /\.right-container \.playing-gif/); assert.match(css, /\.loc-moveclip \.loc-mc-box/);
+  assert.match(css, /\.playing-gif/); assert.match(css, /\.loc-moveclip \.loc-mc-box/);
   original.remove(); h.flush();
   assert(h.style()); assert.notEqual(h.style(), original); assert.equal(h.style().parentNode, h.root);
   assert.equal(h.style().textContent, css);
@@ -68,6 +68,16 @@ test('removed or moved playlist stylesheet repairs itself using only root-direct
     if (node === h.root) assert.equal(options.subtree, undefined);
     else assert.equal(node, current, 'subtree observation must be confined to the owned style');
   }
+});
+
+test('shared playback indicator rules cover module hashes and asset hashes without page or layout scoping', async () => {
+  const h = await harness();
+  const css = h.style().textContent;
+  assert(css.includes('[class*="PlayingIcon_playIcon__"]'));
+  assert(css.includes('img[src*="activity.hdslb.com/blackboard/static/"][src*="/playing.png"]'));
+  assert(!css.includes('.right-container .playing-gif'));
+  assert(!css.includes('ooOtS'));
+  assert(!css.includes('810d5436e67392680ff778b83aa33b46'));
 });
 test('text and disabled-attribute tampering is repaired, and repeated lifecycle checks do not rewrite stable CSS', async () => {
   const h = await harness(), style = h.style(), css = style.textContent;

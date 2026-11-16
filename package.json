@@ -1,6 +1,6 @@
 {
   "name": "bilibili-ls-helper",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "private": true,
   "license": "MIT",
   "description": "Bilibili video and live helper for video-synchronized danmaku with Lossless Scaling.",

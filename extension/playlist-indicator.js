@@ -2,9 +2,16 @@
   'use strict';
   if (globalThis.BFDPlaylistIndicator) return;
   const STYLE = 'bfd-playlist-indicator-style', KEY = 'bfdSettings';
+  // Shared playback indicators appear in different layouts. CSS module hashes
+  // and activity asset directory hashes can change independently of the component.
+  const playingIndicators = [
+    '.playing-gif',
+    '[class*="PlayingIcon_playIcon__"]',
+    'img[src*="activity.hdslb.com/blackboard/static/"][src*="/playing.png"]'
+  ].join(',');
   // This header carousel keeps animating behind the fullscreen player. Like
   // the playlist GIF, it can drive capture above the video's own frame rate.
-  const CSS = '.right-container .playing-gif{display:none!important;background-image:none!important;animation:none!important}\n' +
+  const CSS = playingIndicators + '{display:none!important;background-image:none!important;animation:none!important}\n' +
     '.bili-header__bar .loc-moveclip .loc-mc-box{animation:none!important;transform:translateY(0)!important}';
   let enabled = false, revision = 0;
   let rootObserver = null, styleObserver = null, observedRoot = null, observedStyle = null;

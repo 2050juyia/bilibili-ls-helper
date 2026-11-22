@@ -1,12 +1,15 @@
 {
-  "version": "1.4.5",
-  "sourceCommit": "0aea84aa795a07963478032896aaf64c49cb044e",
-  "localSnapshotCommit": "ba0c8edfdf9caaec8b2e7cb53c34fba6fc25ea19",
-  "archive": "bilibili-danmaku-assistant-v1.4.5.zip",
-  "path": "dist/bilibili-danmaku-assistant-v1.4.5.zip",
-  "bytes": 70287,
-  "sha256": "cebd50040758af1ff450de9198074fb9d02e9327922feca24498a059d57c9d16",
+  "version": "1.5.0",
+  "sourceCommit": "4a2b95f1497ef37747f2d2eff8e78f01dff489ae",
+  "archive": "bilibili-danmaku-assistant-v1.5.0.zip",
+  "path": "dist/bilibili-danmaku-assistant-v1.5.0.zip",
+  "bytes": 71975,
+  "sha256": "0d562ede950e7d14763b436efddc158aca4213afb8c54fdecb00ecd5e7bfb28e",
+  "firefoxArchive": "bilibili-danmaku-assistant-v1.5.0-firefox.zip",
+  "firefoxPath": "dist/bilibili-danmaku-assistant-v1.5.0-firefox.zip",
+  "firefoxBytes": 68142,
+  "firefoxSha256": "5d2d9be5d8ed1381153173d6ad050357eed73b82ca7d5213d0347d430064cd94",
+  "firefoxAddonId": "bilibili-ls-helper@2050juyia.github.io",
   "runtimeFiles": 18,
-  "packaging": "Public installation instructions, MIT license and third-party notices; runtime bytes match local 1.4.5.",
-  "release": "https://github.com/2050juyia/bilibili-ls-helper/releases/tag/v1.4.5"
+  "packaging": "Dual-target build from committed HEAD: Chromium folder archive plus Firefox/AMO root-manifest archive."
 }

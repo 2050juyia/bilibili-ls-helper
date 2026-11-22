@@ -59,3 +59,51 @@ test('synchronous storage exceptions settle saving state and a later full snapsh
   assert.equal(h.writes.length, 1); assert.equal(h.writes[0].settings.position, 'bottom');
   h.writes[0].resolve(); await retry; assert(!h.get('reload').disabled); assert.doesNotMatch(h.get('status-title').textContent, /保存失败|正在保存/);
 });
+
+test('Firefox browser namespace checks host permission and requests it synchronously before reloading', async () => {
+  const elements = new Map(), reloads = [], requested = [];
+  let closed = false, grant = false, inSyncClick = false;
+  const get = id => {
+    if (!elements.has(id)) elements.set(id, { id, checked: false, disabled: true, value: '', hidden: false, textContent: '', dataset: {},
+      events: new Map(), addEventListener(name, fn) { this.events.set(name, fn); } });
+    return elements.get(id);
+  };
+  const browser = {
+    runtime: { getManifest: () => ({ version: '1.5.0' }) },
+    storage: { local: { get: async () => ({ bfdSettings: { enabled: true, motion: 'video-sync', position: 'top', hidePlaylistIndicator: true } }), set: async () => {} } },
+    tabs: { query: async () => [{ id: 12, url: 'https://www.bilibili.com/video/BV1firefox' }], reload: async id => { reloads.push(id); } },
+    permissions: {
+      contains: async ({ origins }) => { assert.deepEqual(Array.from(origins), ['https://www.bilibili.com/*']); return false; },
+      request({ origins }) {
+        assert(inSyncClick, 'Firefox requires permissions.request inside synchronous user input stack');
+        requested.push(Array.from(origins));
+        return Promise.resolve(grant);
+      }
+    }
+  };
+  const context = { URL, document: { getElementById: get }, browser, close() { closed = true; } };
+  context.window = context;
+  vm.runInNewContext(source, context);
+  await settled();
+  assert.equal(get('version').textContent, '1.5.0');
+  assert.match(get('status-title').textContent, /站点访问权限/);
+  assert.match(get('reload-label').textContent, /授权/);
+  assert(!get('reload').disabled);
+
+  // Declined permission keeps popup open without reloading
+  let clickTask;
+  inSyncClick = true; clickTask = get('reload').events.get('click')(); inSyncClick = false;
+  await clickTask;
+  assert.equal(requested.length, 1);
+  assert.deepEqual(reloads, []);
+  assert(!closed);
+  assert.match(get('status-title').textContent, /未完成站点授权/);
+
+  // Granted permission reloads tab and closes popup
+  grant = true;
+  inSyncClick = true; clickTask = get('reload').events.get('click')(); inSyncClick = false;
+  await clickTask;
+  assert.equal(requested.length, 2);
+  assert.deepEqual(reloads, [12]);
+  assert(closed);
+});

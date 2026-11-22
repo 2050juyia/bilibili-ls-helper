@@ -1,12 +1,13 @@
 {
   "name": "bilibili-ls-helper",
-  "version": "1.4.6",
+  "version": "1.5.0",
   "private": true,
   "license": "MIT",
   "description": "Bilibili video and live helper for video-synchronized danmaku with Lossless Scaling.",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
-    "check": "node --check extension/core.js && node --check extension/compositor.js && node --check extension/video-sync.js && node --check extension/live-compositor.js && node --check extension/live-quality.js && node --check extension/live-sync.js && node --check extension/live-periphery.js && node --check extension/hook.js && node --check extension/bridge.js && node --check extension/playlist-indicator.js && node --check extension/popup.js"
+    "check": "node --check extension/core.js && node --check extension/compositor.js && node --check extension/video-sync.js && node --check extension/live-compositor.js && node --check extension/live-quality.js && node --check extension/live-sync.js && node --check extension/live-periphery.js && node --check extension/hook.js && node --check extension/bridge.js && node --check extension/playlist-indicator.js && node --check extension/popup.js",
+    "build:firefox-dev": "python scripts/package.py --firefox-unpacked work/firefox-extension"
   },
   "author": "2050juyia",
   "repository": {

@@ -423,3 +423,49 @@ test('visibility and not-ready/paused/seeking samples clear cadence without chan
     assert.equal(h.callbacks.size, 1); assert.equal(h.timers.size, 0); assert.equal(h.ui.size, 0);
   }
 });
+
+test('background tab suspension does not trigger false live stale recovery or exhaust retry budget', () => {
+  const h = harness();
+  h.controller.update(rolling);
+  h.frame(1);
+
+  h.context.document.hidden = true;
+  h.context.document.visibilityState = 'hidden';
+  h.context.document.emit('visibilitychange', { type: 'visibilitychange' });
+  for (let sec = 2; sec <= 20; sec += 2) {
+    h.original.video.currentTime = sec;
+    h.advance(2000);
+    h.event('timeupdate');
+  }
+  assert(h.controller.status().active);
+  assert.equal(h.controller.status().recovery.attempts, 0);
+
+  h.context.document.hidden = false;
+  h.context.document.visibilityState = 'visible';
+  h.context.document.emit('visibilitychange', { type: 'visibilitychange' });
+  h.advance(500);
+  h.original.video.currentTime = 20.5;
+  h.event('timeupdate');
+  assert(h.controller.status().active);
+  h.frame(20.5);
+  assert.equal(h.controller.status().frames, 2);
+
+  // Pending recovery pauses on background and resumes on foreground
+  h.failDraw();
+  h.frame(21);
+  assert.equal(h.timers.size, 1);
+  h.context.document.hidden = true;
+  h.context.document.visibilityState = 'hidden';
+  h.context.document.emit('visibilitychange', { type: 'visibilitychange' });
+  assert.equal(h.timers.size, 0);
+  assert.equal(h.controller.status().recovery.phase, 'page-hidden');
+  assert.equal(h.controller.status().recovery.attempts, 0);
+  h.context.document.hidden = false;
+  h.context.document.visibilityState = 'visible';
+  h.context.document.emit('visibilitychange', { type: 'visibilitychange' });
+  assert.equal(h.timers.size, 1);
+  h.timer();
+  h.frame(22);
+  assert(h.controller.status().active);
+  assert.equal(h.controller.status().recovery.attempts, 1);
+});

@@ -138,9 +138,13 @@
       });
       observer.observe(document.documentElement, { childList: true, subtree: true });
     }
+    function isTabHidden() {
+      return document.hidden === true || document.visibilityState === 'hidden';
+    }
     function armRecovery(r) {
       if (recovery !== r || r.timer || hidden || !desired.enabled) return;
       if (!same(target(), r.target) || !connected(r.target)) { clearRecovery('target-changed', true); update(desired); return; }
+      if (isTabHidden()) { r.phase = 'page-hidden'; outcome(r.record, 'page-hidden'); return; }
       const video = r.target.video;
       if (video.paused || video.ended || video.seeking || video.readyState < 2) {
         r.phase = video.paused || video.ended ? 'paused' : video.seeking ? 'seeking' : 'loading'; outcome(r.record, r.phase); return;
@@ -152,7 +156,7 @@
         r.timer = 0;
         if (hidden || !desired.enabled) return;
         if (!same(target(), r.target) || !connected(r.target)) { clearRecovery('target-changed', true); update(desired); return; }
-        if (video.paused || video.ended || video.seeking || video.readyState < 2) { armRecovery(r); return; }
+        if (isTabHidden() || video.paused || video.ended || video.seeking || video.readyState < 2) { armRecovery(r); return; }
         attempts++; r.phase = 'retrying'; outcome(r.record, 'retrying'); update(desired, true);
       }, delays[attempts]);
       r.timer = timer;
@@ -239,6 +243,7 @@
         listen('loadeddata', () => schedule(s)); listen('canplay', () => { if (!s.surface.status().committed) schedule(s); });
         listen('emptied', () => { clearRecovery('loading'); stop('等待直播视频重新加载'); });
         listen('timeupdate', () => {
+          if (isTabHidden()) { s.lastCallbackAt = Date.now(); return; }
           if (!s.video.paused && !s.video.seeking && s.video.readyState >= 2 && s.mediaTime !== null && Date.now() - s.lastCallbackAt > 2000 && s.video.currentTime - s.mediaTime > 1) recover(s, 'stale');
         });
         if (typeof root.ResizeObserver === 'function') { s.resize = new root.ResizeObserver(() => { if (s.surface.needsResize?.()) requestUi(s); }); s.resize.observe(s.host); }
@@ -261,9 +266,24 @@
     listen(root, 'resize', () => { update(desired); if (state && state.surface.needsResize?.()) requestUi(state); });
     listen(root, 'popstate', queueDiscovery);
     listen(document, 'visibilitychange', () => {
-      if (!state) return;
-      clearPresentationSamples(state);
-      if (document.hidden || document.visibilityState === 'hidden') cancelPresentationRefresh(state);
+      if (isTabHidden()) {
+        if (recovery?.timer) { clearTimeout(recovery.timer); recovery.timer = 0; recovery.phase = 'page-hidden'; outcome(recovery.record, 'page-hidden'); }
+        if (!state) return;
+        clearPresentationSamples(state);
+        cancelPresentationRefresh(state);
+        return;
+      }
+      if (state) {
+        clearPresentationSamples(state);
+        state.lastCallbackAt = Date.now();
+        state.windowStart = null;
+        schedule(state);
+      } else if (recovery && recovery.phase !== 'exhausted') {
+        armRecovery(recovery);
+      } else if (!hidden && desired.enabled) {
+        readyAttempt = 0;
+        update(desired);
+      }
     });
     listen(root, 'pagehide', () => { hidden = true; quality?.update(false); cancelReady(); observer?.disconnect(); observer = null; clearRecovery('page-hidden'); stop('页面已离开'); });
     listen(root, 'pageshow', () => { hidden = false; readyAttempt = 0; update(desired); });

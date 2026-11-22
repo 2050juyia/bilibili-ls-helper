@@ -1,5 +1,25 @@
 # 检查说明
 
+## 1.5.0检查（2026-11-21）
+
+本轮基于已验收的 1.4.6 基线（`b2f2818`）完成桌面端 Mozilla Firefox（140+）适配与双端分流构建。当前扩展文件哈希见 `SOURCE-MANIFEST.json`。
+
+- `npm test` 通过 **256 项** 检查（0 失败、0 跳过、0 取消），新增覆盖：
+  - Firefox `browser.*` WebExtensions 命名空间及 `browser.runtime.onMessage` Promise 异步响应（无 `chrome` 全局变量环境）；
+  - 弹窗站点访问权限检查（`permissions.contains`）及用户手势同步请求（`permissions.request`）；
+  - Firefox Gecko 下点播 `BFDCompositor` 保留底层 `<video>` 可见性（`keepVideoVisible: true`）同时隐藏原生弹幕容器；
+  - 点播与直播在后台标签页（`document.hidden === true`）持续推进音频 `timeupdate` 20 秒不误判 `stale`、零恢复预算消耗，切回前台自动接续；
+  - Firefox 派生 `manifest.json` 满足 AMO 规范（无 `minimum_chrome_version`、含 `gecko.id`、`strict_min_version: "140.0"`、`data_collection_permissions.required: ["none"]` 且 `manifest.json` 位于 ZIP 根目录）。
+- `npm run check` 通过全部 11 个扩展脚本语法检查。
+- `node scripts/firefox-ui-check.cjs` 使用本机 **Mozilla Firefox 160.0.1** 与内置 Marionette 协议执行端到端验收，5 组真机检查全部通过：
+  1. `AddonManager.installTemporaryAddon` 成功安装根目录结构的 `-firefox.zip`（`isActive: true`）；
+  2. `moz-extension://.../popup.html` 正常读取/写入 `browser.storage.local`，且无横向溢出；
+  3. 点播页面连续运行 >2.6 秒（跨越 2000ms 停滞检测阈值），`requestVideoFrameCallback` 持续触发呈现 44 帧、`keepVideoVisible: true`、恢复尝试次数为 0，新旧播放指示图标正常隐藏；
+  4. `ISOLATED` 世界 `bridge.js` 与 `MAIN` 世界 `hook.js` 通过 `browser.tabs.sendMessage` 完成 Promise 状态往返（`fetch`/`xhr`/`socket` 钩子全部就绪）；
+  5. 直播房间页 `BFDLiveSync` + `BFDLiveCompositor` 连续触发帧合成，并通过 Firefox `ImageDecoder` 成功解码表情资源（`assets: 1, imageFailures: 0`）。
+
+Firefox 测试配置与截图保存在忽略目录 `work/firefox-ui-1.5.0/`（位于 E 盘工作区）。受控浏览器验收不代替各显卡、窗口模式下的 Lossless Scaling 实机运动画面对比。
+
 ## 1.4.6检查（2026-11-15）
 
 本轮基于公开1.4.5提交 `f168acf` 移植共用播放指示图标修复。其扩展文件树与E盘、D盘的本地1.4.5开发快照一致，来源与当前哈希见 `SOURCE_PROVENANCE.md`、`SOURCE-MANIFEST.json`。

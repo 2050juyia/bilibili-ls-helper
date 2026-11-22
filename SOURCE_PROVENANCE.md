@@ -1,5 +1,11 @@
 # 公开版本来源
 
+## 1.5.0（2026-11-21）
+
+基于已验收的 1.4.6 提交 `b2f28183ad43e777f4e56de4e99a28be1f1d224f`（其上游公开基线为 1.4.5 提交 `f168acfc95374cfcdc9245ea3e3d214cb6c82cba`）增加桌面端 Mozilla Firefox（140+）适配与双端分流构建。
+
+本次扩展目录 `extension/` 修改涉及 `bridge.js`、`playlist-indicator.js`、`live-periphery.js`、`popup.js`、`popup.css`、`compositor.js`、`video-sync.js`、`live-sync.js` 与版本号 `manifest.json`，全部 18 个文件的当前 SHA256 记录于 `SOURCE-MANIFEST.json`。打包脚本 `scripts/package.py` 从已提交 `HEAD` 同时生成 Chromium 目录结构 ZIP 与 Firefox/AMO 根目录结构 `-firefox.zip`（Firefox 包内 `manifest.json` 由 `scripts/firefox_manifest.py` 确定性派生，其余脚本与图标字节一致）。
+
 ## 1.4.6（2026-11-15，本地交付）
 
 基于公开1.4.5提交 `f168acfc95374cfcdc9245ea3e3d214cb6c82cba` 增加共用播放指示图标规则。该基线的扩展文件树为 `9005679e0f66be2b2ea57b8de9871760b33b55ed`，与本地交付快照 `ba0c8edfdf9caaec8b2e7cb53c34fba6fc25ea19` 一致。

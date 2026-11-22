@@ -1,33 +1,31 @@
 # B站小黄鸭插帧助手
 
-## 1.4.6 本地播放图标修复
-
-本分支基于已发布的1.4.5源码提交 `f168acf`，增加新版番剧、电影等页面的播放指示图标屏蔽。打开“减少页面动画”后，旧版 `.playing-gif`、新版 `PlayingIcon_playIcon__` 共用组件及播放指示素材路径统一匹配，动态插入和随机哈希后缀变化也会应用。选集文字、链接及原有直播功能继续沿用1.4.5。
-
-本地交付包版本为1.4.6，下方公开下载说明对应已发布的1.4.5。更新后重载扩展、完整刷新实际播放页，再确认“减少页面动画”已开启。来源清单见 `SOURCE-MANIFEST.json`。
-
-给电脑浏览器使用的 Lossless Scaling（小黄鸭）配套插件，支持B站视频、番剧与直播。处理可能干扰视频补帧的页面动画，让文字弹幕及直播图片表情跟随视频帧同步更新。
+给电脑浏览器使用的 Lossless Scaling（小黄鸭）配套插件，支持 **Edge、Chrome 与 Firefox（140+）** 下的B站视频、番剧与直播。处理可能干扰视频补帧的页面动画，让文字弹幕及直播图片表情跟随视频帧同步更新。
 
 **插件本身不生成中间帧，需要配合 Lossless Scaling 使用。** 如果小黄鸭帧数显示上升，但视频运动画面仍不流畅，可以在相同视频片段中试用并比较实际效果。
 
+## 1.5.0 更新要点
+
+- **新增 Mozilla Firefox（140+）适配：** 支持 Firefox 正式版及 140 ESR，解决 Gecko 视频合成可见性、后台标签页挂起恢复及 `browser.*` Promise 通信差异，并提供符合 Mozilla 官方商店（AMO）规范的专用安装包。
+- **新版番剧与电影播放指示图标屏蔽：** 打开“减少页面动画”后，旧版 `.playing-gif`、新版 `PlayingIcon_playIcon__` 共用组件及播放指示素材路径统一匹配，动态插入和随机哈希后缀变化也会自动应用。
+
 ## 下载与安装
 
-- **最新版安装包：[GitHub Releases](https://github.com/2050juyia/bilibili-ls-helper/releases/latest)**，当前为 **[1.4.5 ZIP](https://github.com/2050juyia/bilibili-ls-helper/releases/download/v1.4.5/bilibili-danmaku-assistant-v1.4.5.zip)**。
-- **GitHub 源码与说明：[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)**。点击 **Code → Download ZIP** 下载源码包，解压后加载其中的 `extension` 文件夹。
+- **最新版发布页：[GitHub Releases](https://github.com/2050juyia/bilibili-ls-helper/releases/latest)**（当前版本 **1.5.0**）：
+  - **Edge / Chrome 安装包：** `bilibili-danmaku-assistant-v1.5.0.zip`（解压后加载 `bilibili-fixed-danmaku` 文件夹）。
+  - **Firefox（140+）安装包：** 推荐通过 Firefox 官方商店一键安装，或在 `about:addons` 从文件安装已签名的 `.xpi` 包；开发调试可在 `about:debugging` 临时载入 `bilibili-danmaku-assistant-v1.5.0-firefox.zip`。
+- **GitHub 源码与说明：[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)**。Edge / Chrome 点击 **Code → Download ZIP** 下载源码包时，解压后加载其中的 `extension` 文件夹。
 - **备用旧入口：[夸克网盘](https://pan.quark.cn/s/4603da61b708)**。网盘可能仍为旧版，未确认同步更新；最新版本以 GitHub Releases 为准。
 
-第一次安装可先看：**[Edge 图文教程](docs/install-edge.zh-CN.md)** / **[Chrome 图文教程](docs/install-chrome.zh-CN.md)**。每份都有可保存的安装长图，覆盖解压、加载正确文件夹和推荐设置。
+第一次安装可先看对应浏览器的图文教程：**[Edge 图文教程](docs/install-edge.zh-CN.md)** / **[Chrome 图文教程](docs/install-chrome.zh-CN.md)** / **[Firefox 图文教程](docs/install-firefox.zh-CN.md)**。
 
-公开下载版本为 **1.4.5**。可下载 Release 中的 `bilibili-danmaku-assistant-v1.4.5.zip`，或下载 GitHub 源码包。两种方式都需要先解压，再按以下步骤安装：
+### Edge / Chrome 快速安装步骤
 
-1. 解压到一个以后不会删除或移动的固定文件夹。
+1. 将 `bilibili-danmaku-assistant-v1.5.0.zip` 解压到一个以后不会删除或移动的固定文件夹。
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。
 3. 开启「开发者模式」，选择「加载已解压的扩展程序」。
 4. 选择解压后**直接包含 `manifest.json`** 的文件夹：Release 安装包选 `bilibili-fixed-danmaku`；GitHub 源码包选 `extension`。
-5. 刷新已经打开的B站视频或直播页。
-6. 从浏览器右上角的扩展菜单找到「B站小黄鸭插帧助手」，打开设置；可以将其固定到工具栏，方便下次使用。
-
-要选择的是直接看到 `manifest.json` 的这一层，**不要选择ZIP文件或上一级目录**。解压后的文件夹需要继续保留：
+5. 刷新已经打开的B站视频或直播页，从右上角扩展菜单打开「B站小黄鸭插帧助手」。
 
 ```text
 bilibili-fixed-danmaku/
@@ -36,11 +34,14 @@ bilibili-fixed-danmaku/
 └─ icons/
 ```
 
-上面的目录示意以 Release 安装包为例。GitHub 的 **Code → Download ZIP** 下载的是源码包，对应目录名为 `extension`。普通用户无需安装 Node.js、Python 或 npm 依赖，也无需编译。
+### Firefox（140+）快速安装步骤
 
-### Edge / Chrome 安装图解
+- **永久安装（正式版推荐）：** 在 Firefox 官方附加组件商店点击「添加到 Firefox」，或下载已签名 `.xpi` 文件后打开 `about:addons` → 右上角齿轮图标 →「从文件安装附加组件…」。
+- **临时调试：** 打开 `about:debugging#/runtime/this-firefox` → 点击「临时载入附加组件…」→ 直接选择 `bilibili-danmaku-assistant-v1.5.0-firefox.zip`（无需解压；关闭 Firefox 后会自动移除）。
 
-按使用的浏览器展开对应长图。也可以点击图片下方的原图链接，单独查看或保存。长图保留了原安装教程：Chrome 使用用户提供的1.3.13实际截图，Edge 使用微软官方界面截图，文件夹和推荐设置面板为教学示意。基本安装操作未变；下载版本和新增直播功能以本文为准。图源与复现方法见 [SOURCES.md](docs/assets/SOURCES.md)。
+### Edge / Chrome / Firefox 安装图解
+
+按使用的浏览器展开对应长图，也可打开 [离线切换预览页](docs/install.html) 查看。图源与复现方法见 [SOURCES.md](docs/assets/SOURCES.md)。
 
 <details>
 <summary>Microsoft Edge 安装图解（点击展开）</summary>
@@ -60,17 +61,25 @@ bilibili-fixed-danmaku/
 
 </details>
 
-### 浏览器兼容性
+<details>
+<summary>Mozilla Firefox 安装图解（点击展开）</summary>
 
-**Windows 桌面版 Microsoft Edge、Google Chrome 均已有实际使用成功记录。**
+![Mozilla Firefox 安装教程：商店或签名 .xpi 永久安装、临时调试与推荐设置](docs/assets/install-firefox.png)
+
+[查看／保存 Firefox 原图](docs/assets/install-firefox.png) · [Firefox 完整文字教程与常见问题](docs/install-firefox.zh-CN.md)
+
+</details>
+
+### 浏览器兼容性
 
 | 浏览器 | 验证情况 |
 | --- | --- |
-| Microsoft Edge | 已有实机验证记录。 |
-| Google Chrome | 2026-10-19，用户使用插件1.3.13实测并反馈正常使用。 |
-| 360、QQ、Firefox及其他浏览器 | 尚未完成验证，不将共享内核视为已确认兼容。 |
+| Microsoft Edge | 已有实机与受控自动化验证记录（声明 Chromium 最低版本 111）。 |
+| Google Chrome | 2026-10-19 用户基于 1.3.13 实测反馈正常使用（声明 Chromium 最低版本 111）。 |
+| Mozilla Firefox | 1.5.0 已通过 Windows 版 Firefox 160.0.1 受控端到端自动化验收（声明最低桌面版本 140.0）。 |
+| 360、QQ及其他浏览器 | 尚未完成验证，不将共享内核视为已确认兼容。 |
 
-以上是已有环境的成功记录，不代表所有浏览器版本、设备和视频都已验证。Chrome 反馈针对1.3.13，未记录具体浏览器版本与硬件配置，不等于1.4.5的直播功能已在Chrome逐项实测；近期直播与自动验收主要使用Edge。遇到问题时请一并提供这些信息。扩展使用 Manifest V3，声明的 Chromium 最低版本为111，此安装声明不等于逐版本实测。
+以上是已有环境的验证记录，不代表所有浏览器版本、设备和视频都已逐一实测。正式版 Firefox 安装持久扩展需经 Mozilla 签名（商店上架或已签名 `.xpi`），未签名 `-firefox.zip` 在正式版中仅支持 `about:debugging` 单次会话临时加载。遇到问题时请一并提供浏览器与系统版本信息。
 
 ## 推荐设置（与视频演示一致）
 
@@ -148,7 +157,7 @@ npm run check
 python scripts/package.py
 ```
 
-打包脚本读取**已提交的 HEAD**，不是未提交工作区。先提交本次公开内容，再生成包，核对版本、构建提交和SHA256。大型测试产物、浏览器配置和日志留在忽略的工作目录，不加入仓库。
+打包脚本读取**已提交的 HEAD**，同时生成面向 Edge / Chrome 的 `bilibili-danmaku-assistant-v1.5.0.zip` 与面向 Firefox / AMO 的根目录结构包 `bilibili-danmaku-assistant-v1.5.0-firefox.zip`，并写入 `release-manifest.json` 与 `SHA256SUMS.txt`。本地调试 Firefox 可运行 `npm run build:firefox-dev` 生成解包目录，或运行 `node scripts/firefox-ui-check.cjs` 执行本机 Firefox Marionette 端到端检查。AMO 上架流程与文案见 [docs/amo-submission-guide.zh-CN.md](docs/amo-submission-guide.zh-CN.md)。大型测试产物、浏览器配置和日志留在忽略的工作目录，不加入仓库。
 
 本公开源码包含无需第三方依赖的 Node.js 测试。早期依赖特定浏览器配置或旧开发历史的辅助脚本没有随包发布；`scripts/passive-frame-audit.js` 是供开发者使用的被动检查工具，不由扩展加载。受控检查的边界见 `TEST-REPORT.md`，它们不等于小黄鸭在所有设备上的实测结果。
 

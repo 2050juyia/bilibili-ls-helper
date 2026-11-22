@@ -316,3 +316,22 @@ test('own border color changes including zero invalidate a retained sprite witho
   assert.equal(s.status().textCache.builds, 3); assert.equal(h.draws.filter(d => d.name === 'strokeRect').at(-1).strokeStyle, 'blue');
   assert.equal(h.presents.length, 3);
 });
+
+test('Firefox Gecko keeps native video visible beneath the opaque composite canvas while hiding native danmaku', () => {
+  const h = harness();
+  h.context.navigator = { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:160.0) Gecko/20100101 Firefox/160.0' };
+  vm.runInContext(fs.readFileSync(require.resolve('../extension/compositor.js'), 'utf8'), h.context);
+  h.video.style.setProperty('visibility', 'visible');
+  const surface = h.context.BFDCompositor.create(h.renderer, h.video);
+  assert.equal(surface.status().keepVideoVisible, true);
+  surface.draw();
+  assert.equal(h.presents.length, 1);
+  assert.equal(h.video.style.getPropertyValue('visibility'), 'visible', 'Firefox must keep <video> visible so requestVideoFrameCallback never stalls');
+  assert.equal(h.container.style.getPropertyValue('visibility'), 'hidden');
+  assert.equal(h.container.style.getPropertyPriority('visibility'), 'important');
+  assert.equal(h.container.style.getPropertyValue('pointer-events'), 'none');
+  assert.equal(h.canvas.style.getPropertyValue('visibility'), 'visible');
+  surface.restore();
+  assert.equal(h.video.style.getPropertyValue('visibility'), 'visible');
+  assert.equal(h.container.style.getPropertyValue('visibility'), '');
+});

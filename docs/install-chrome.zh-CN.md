@@ -2,7 +2,7 @@
 
 适用于Windows电脑上的Google Chrome。本插件需要配合Lossless Scaling（小黄鸭）使用，本身不生成中间帧。
 
-当前版本为 **1.4.5**，支持视频、番剧与直播。下方长图保留1.3.13历史截图与图源，安装基本操作不变；图中旧版本、旧下载入口以本文的Release说明为准。1.3.13的用户使用反馈不等于新增直播功能已在所有Chrome版本逐项验证。
+当前版本为 **1.5.0**，支持视频、番剧与直播。下方长图中的浏览器管理页保留 1.3.13 用户实拍图源，推荐设置面板更新至 1.5.0 示意。1.3.13 的用户使用反馈不等于新增直播功能已在所有 Chrome 版本逐项验证。
 
 ![Chrome从ZIP安装与设置图解](assets/install-chrome.png)
 
@@ -12,7 +12,7 @@ Chrome浏览器部分使用用户提供的真实截图，截图中的插件版�
 
 推荐使用Release安装包，也可从源码安装：
 
-- **Release安装包（推荐）：**打开[最新版发布页](https://github.com/2050juyia/bilibili-ls-helper/releases/latest)，或直接下载 [bilibili-danmaku-assistant-v1.4.5.zip](https://github.com/2050juyia/bilibili-ls-helper/releases/download/v1.4.5/bilibili-danmaku-assistant-v1.4.5.zip)。
+- **Release安装包（推荐）：**打开[最新版发布页](https://github.com/2050juyia/bilibili-ls-helper/releases/latest)，下载面向 Edge / Chrome 的 `bilibili-danmaku-assistant-v1.5.0.zip`（**不要误选带 `-firefox` 后缀的压缩包**）。
 - **GitHub源码包：**打开[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)，点击 **Code → Download ZIP**。解压后加载里面的 `extension` 文件夹，不要选择整个源码目录。
 - **备用旧入口：**[夸克网盘](https://pan.quark.cn/s/4603da61b708)可能仍是旧版，未确认已同步更新；以Release版本为准。
 

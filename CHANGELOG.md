@@ -2,6 +2,14 @@
 
 本文件提炼面向用户的更新，不把受控测试结果当成所有设备的补帧保证。详细实现与验证边界见 `TEST-REPORT.md`。
 
+## 1.5.0
+
+- 新增桌面端 Mozilla Firefox（140+，含 ESR 及正式版）完整适配，统一兼容 `browser.*` 与 `chrome.*` WebExtensions 命名空间及 Promise 消息回复。
+- 修复 Firefox（Gecko）下点播原 `<video>` 被设为 `visibility: hidden` 后视频帧脱离显示列表、导致 `requestVideoFrameCallback` 停摆的问题；Firefox 下保留底层视频可见并由上方不透明合成画布完整覆盖，Chromium 端保持原有行为不变。
+- 修复点播与直播在标签页切至后台期间（Firefox 默认挂起后台视频解码、仅音频推进）被 `timeupdate` 误判为帧回调停滞而耗尽 3 次恢复预算的问题；切回前台后自动恢复帧回调同步。
+- 弹窗新增B站站点访问权限检查与一键请求授权提示，避免 Firefox MV3 用户关闭站点权限时脚本静默不生效。
+- 打包脚本新增双端分流构建：除原有 Chromium 解压包外，同时输出 `manifest.json` 位于根目录、含固定 `gecko.id` 与 `data_collection_permissions` 隐私声明且零警告的 `-firefox.zip` 专用包，配套新增 Firefox 图文安装教程与 AMO 上架清单。
+
 ## 1.4.6（本地交付）
 
 - 基于公开1.4.5提交 `f168acf` 增加新版番剧、电影等页面的播放指示图标屏蔽。

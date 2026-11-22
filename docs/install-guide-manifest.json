@@ -1,23 +1,31 @@
 {
-  "version": "1.3.13",
-  "edition": 2,
-  "date": "2026-10-19",
+  "version": "1.5.0",
+  "edition": 3,
+  "date": "2026-11-21",
   "outputs": [
     {
       "browser": "Microsoft Edge",
       "path": "docs/assets/install-edge.png",
       "width": 1440,
       "height": 4552,
-      "bytes": 802788,
-      "sha256": "65d2c8ebb1280696023e971683fb2ac940fa2b03ada1894546b7079fb9833df7"
+      "bytes": 815740,
+      "sha256": "c54329301a06898d33680d3e7f81c2217f2a895c90edd42e1ce6ce61f2a3c219"
     },
     {
       "browser": "Google Chrome",
       "path": "docs/assets/install-chrome.png",
       "width": 1440,
       "height": 4522,
-      "bytes": 751209,
-      "sha256": "d81ee0d229302c4541a324fd412406740ee23c86a2a114826530b5ca5049c200"
+      "bytes": 764798,
+      "sha256": "24d3547ede2e5fbce5a095c6da8b938a16ba216e6875d90f5d03ed3da62fa855"
+    },
+    {
+      "browser": "Mozilla Firefox",
+      "path": "docs/assets/install-firefox.png",
+      "width": 1440,
+      "height": 3626,
+      "bytes": 663355,
+      "sha256": "2a880e06cff9889a29be64d71bdd522853127063ebafa2baf434b52d7a103751"
     }
   ],
   "references": [

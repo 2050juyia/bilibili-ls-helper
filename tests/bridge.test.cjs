@@ -47,3 +47,38 @@ test('initial read failure requests status only when a newer setting was not del
   changed.change(latest); changed.rejectRead(Error('storage unavailable')); await settled();
   assert.equal(changed.posts.length, 1); assert.equal(changed.posts[0].message.payload, latest);
 });
+
+test('Firefox browser namespace uses Promise-based runtime.onMessage replies without requiring chrome global', async () => {
+  const posts = [];
+  let onMessage, onWindowMessage, onStorageChange;
+  const context = vm.createContext({
+    location: { origin: 'https://www.bilibili.com' },
+    addEventListener(name, fn) { if (name === 'message') onWindowMessage = fn; },
+    postMessage(message, origin) { posts.push({ message, origin }); },
+    setTimeout(fn) { Promise.resolve().then(fn); return 1; },
+    browser: {
+      storage: {
+        local: { get: async () => ({ bfdSettings: { enabled: true, motion: 'video-sync', position: 'top' } }) },
+        onChanged: { addListener(fn) { onStorageChange = fn; } }
+      },
+      runtime: { onMessage: { addListener(fn) { onMessage = fn; } } }
+    }
+  });
+  const vmWindow = vm.runInContext('this.window = this', context);
+  vm.runInContext(source, context);
+  await settled();
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].message.payload.motion, 'video-sync');
+  assert.equal(onMessage({ type: 'unrelated' }), undefined);
+  onWindowMessage({
+    source: vmWindow,
+    origin: 'https://www.bilibili.com',
+    data: { channel: 'bfd-fixed-v1', type: 'status', payload: { supportedPage: true, converted: 4, motion: 'video-sync' } }
+  });
+  const replyPromise = onMessage({ type: 'bfd-get-status' });
+  assert.equal(typeof replyPromise?.then, 'function', 'Firefox browser.runtime.onMessage must return a Promise');
+  const status = await replyPromise;
+  assert.deepEqual(status, { supportedPage: true, converted: 4, motion: 'video-sync' });
+  onStorageChange({ bfdSettings: { newValue: { enabled: false, motion: 'fixed', position: 'bottom' } } }, 'local');
+  assert.equal(posts.at(-1).message.payload.position, 'bottom');
+});

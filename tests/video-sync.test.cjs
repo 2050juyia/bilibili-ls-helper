@@ -454,3 +454,60 @@ test('a throwing native scheduler resume cannot prevent bounded recovery or expl
   assert.doesNotThrow(() => h.controller.update({ enabled: false }, h.renderer));
   assert.equal(h.timers.size, 0); assert.equal(h.callbacks.size, 0); assert.equal(h.classes.size, 0);
 });
+
+test('background tab suspension does not trigger false stale recovery or burn budget while audio advances', () => {
+  const docListeners = new Map();
+  const h = harness();
+  h.context.document.hidden = false;
+  h.context.document.visibilityState = 'visible';
+  h.context.document.addEventListener = (name, fn) => { docListeners.set(name, fn); };
+  const controller = h.context.BFDVideoSync.create();
+  controller.update(enabled, h.renderer);
+  h.frame(1);
+
+  // Simulate switching away in Firefox for 20 seconds while audio continues playing
+  h.context.document.hidden = true;
+  h.context.document.visibilityState = 'hidden';
+  docListeners.get('visibilitychange')?.();
+  const pendingBefore = [...h.callbacks.keys()];
+  for (let sec = 2; sec <= 20; sec += 2) {
+    h.video.currentTime = sec;
+    h.advance(2000);
+    h.event('timeupdate');
+  }
+  assert(controller.status().active, 'hidden tab must remain attached without false stale teardown');
+  assert.equal(controller.status().recovery.attempts, 0);
+  assert.deepEqual([...h.callbacks.keys()], pendingBefore);
+
+  // Return to foreground: resyncs without stale trigger and continues rendering
+  h.context.document.hidden = false;
+  h.context.document.visibilityState = 'visible';
+  docListeners.get('visibilitychange')?.();
+  h.advance(500);
+  h.video.currentTime = 20.5;
+  h.event('timeupdate');
+  assert(controller.status().active);
+  h.frame(20.5);
+  assert.equal(controller.status().frames, 2);
+  assert.equal(controller.status().recovery.attempts, 0);
+
+  // Pending recovery timer pauses while hidden and resumes on foreground without extra attempt
+  h.failDraw();
+  h.frame(21);
+  assert.equal(h.timers.size, 1);
+  h.context.document.hidden = true;
+  h.context.document.visibilityState = 'hidden';
+  docListeners.get('visibilitychange')?.();
+  assert.equal(h.timers.size, 0);
+  assert.equal(controller.status().recovery.phase, 'page-hidden');
+  assert.equal(controller.status().recovery.attempts, 0);
+  h.context.document.hidden = false;
+  h.context.document.visibilityState = 'visible';
+  docListeners.get('visibilitychange')?.();
+  assert.equal(h.timers.size, 1);
+  h.timer();
+  h.frame(22);
+  assert(controller.status().active);
+  assert.equal(controller.status().recovery.attempts, 1);
+  controller.update({ enabled: false }, h.renderer);
+});

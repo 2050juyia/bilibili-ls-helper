@@ -4,8 +4,8 @@
 [hidden] { display: none !important; }
 /* The action popup starts with a narrow viewport before Chromium sizes it.
    An explicit root minimum prevents percentage widths from locking that size. */
-html { width: 402px; min-width: 402px; }
-body { width: 402px; min-width: 402px; margin: 0; overflow-wrap: anywhere; }
+html { width: 402px; min-width: 402px; overflow-x: hidden; }
+body { width: 402px; min-width: 402px; margin: 0; overflow-x: hidden; overflow-wrap: anywhere; }
 button, input, select { font: inherit; accent-color: var(--accent); }
 button, select, summary, .toggle { cursor: pointer; }
 button:disabled, input:disabled, select:disabled { cursor: default; opacity: .55; }

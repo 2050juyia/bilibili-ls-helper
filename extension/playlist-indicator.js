@@ -54,9 +54,10 @@
     document.addEventListener(name, () => { if (enabled) apply(true); }, true);
   }
   globalThis.BFDPlaylistIndicator = { set: apply };
-  chrome.storage.onChanged.addListener((changes, area) => {
+  const ext = typeof browser === 'object' && browser?.storage ? browser : chrome;
+  ext.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes[KEY]) { revision++; apply(changes[KEY].newValue?.hidePlaylistIndicator); }
   });
   const initial = revision;
-  chrome.storage.local.get(KEY).then(value => { if (revision === initial) apply(value[KEY]?.hidePlaylistIndicator); }).catch(() => {});
+  ext.storage.local.get(KEY).then(value => { if (revision === initial) apply(value?.[KEY]?.hidePlaylistIndicator); }).catch(() => {});
 })();

@@ -57,6 +57,9 @@
   function create() {
     let state = null, reason = '未启用', failedRenderer = null, retry = 0, attempt = 0, desired = {};
     let recovery = null, recoveryAttempts = 0, pageHidden = false;
+    function isTabHidden() {
+      return typeof document === 'object' && (document?.hidden === true || document?.visibilityState === 'hidden');
+    }
     function currentRenderer() { try { return root.player?.danmaku?.getDanmakuX?.(); } catch { return null; } }
     function ensureSyncStyle(s) {
       if (!s.style.isConnected) (document.head || document.documentElement).appendChild(s.style);
@@ -110,6 +113,7 @@
       if (currentRenderer() !== r.renderer || r.renderer.frameScheduler !== r.scheduler || !r.video.isConnected || !r.renderer.container?.isConnected) {
         clearRecovery('renderer-changed', true); update(desired, currentRenderer()); return;
       }
+      if (isTabHidden()) { r.phase = 'page-hidden'; outcome(r.record, 'page-hidden'); return; }
       if (r.video.paused || r.video.ended) { r.phase = 'paused'; outcome(r.record, 'paused'); return; }
       if (r.video.seeking) { r.phase = 'seeking'; outcome(r.record, 'seeking'); return; }
       if (r.video.readyState < 2) { r.phase = 'media-loading'; outcome(r.record, 'media-loading'); return; }
@@ -119,7 +123,7 @@
         if (recovery !== r || r.timer !== timer) return;
         r.timer = 0;
         if (pageHidden) return;
-        if (r.video.paused || r.video.ended || r.video.seeking || r.video.readyState < 2) { armRecovery(r); return; }
+        if (isTabHidden() || r.video.paused || r.video.ended || r.video.seeking || r.video.readyState < 2) { armRecovery(r); return; }
         if (currentRenderer() !== r.renderer || r.renderer.frameScheduler !== r.scheduler || !r.video.isConnected) {
           clearRecovery('renderer-changed', true); update(desired, currentRenderer()); return;
         }
@@ -218,6 +222,7 @@
         });
       }
       s.requestUi = requestUi;
+      s.schedule = schedule;
       function frame(now, metadata) {
         s.pending = 0;
         paint(now, metadata, true);
@@ -334,7 +339,9 @@
         uiEvent(root, 'resize', () => { if (s.surface.needsResize?.()) requestUi(); });
         // Native media events detect a stale canvas without adding polling or
         // rendering extra frames. Never leave audio playing behind a frozen image.
+        // Background tabs suspend video decoding in Firefox while audio continues.
         listen('timeupdate', () => {
+          if (isTabHidden()) { s.lastCallbackAt = Date.now(); return; }
           if (!video.paused && !video.seeking && video.readyState >= 2 && s.mediaTime !== null &&
               Date.now() - s.lastCallbackAt > 2000 && video.currentTime - s.mediaTime > Math.max(1, video.playbackRate)) {
             recover(s, 'stale', '视频帧回调停止，已恢复原生画面');
@@ -361,6 +368,26 @@
       return state ? { active: true, frames: state.frames, uiFrames: state.uiFrames, updates: state.updated, fps: state.fps,
         mediaTime: state.mediaTime, paused: state.video.paused, composite: state.surface.status(), reason: '', recovery: recoveryStatus } : { active: false, reason, recovery: recoveryStatus };
     }
+    document?.addEventListener?.('visibilitychange', () => {
+      if (isTabHidden()) {
+        if (recovery?.timer) { clearTimeout(recovery.timer); recovery.timer = 0; recovery.phase = 'page-hidden'; outcome(recovery.record, 'page-hidden'); }
+        if (state) { state.windowStart = null; state.windowFrames = 0; }
+        return;
+      }
+      if (pageHidden) return;
+      if (state) {
+        state.lastCallbackAt = Date.now();
+        state.reset = true;
+        state.windowStart = null;
+        state.windowFrames = 0;
+        state.schedule?.();
+      } else if (recovery && recovery.phase !== 'exhausted') {
+        armRecovery(recovery);
+      } else if (desired.enabled && desired.motion === 'video-sync') {
+        attempt = 0;
+        update(desired, currentRenderer());
+      }
+    });
     root.addEventListener('pagehide', () => {
       pageHidden = true; clearRecovery('page-hidden');
       if (retry) { clearTimeout(retry); retry = 0; }

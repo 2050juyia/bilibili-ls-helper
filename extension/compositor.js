@@ -1,7 +1,12 @@
 // Build the complete video + ordinary danmaku image off-screen, then present once.
 (function (root) {
   'use strict';
-  function create(renderer, video) {
+  function isGecko(target) {
+    try { return /\bFirefox\//i.test(target?.navigator?.userAgent || ''); }
+    catch { return false; }
+  }
+  function create(renderer, video, options = {}) {
+    const keepVideoVisible = typeof options?.keepVideoVisible === 'boolean' ? options.keepVideoVisible : isGecko(root);
     const container = renderer.container;
     const host = video.closest('.bpx-player-video-perch') || video.parentElement;
     const canvas = document.createElement('canvas');
@@ -16,7 +21,9 @@
     const output = canvas.getContext('bitmaprenderer', { alpha: false });
     if (!context || !textContext || !output) throw new Error('浏览器不支持合成画布');
     const previous = ['visibility', 'pointer-events'].map(name => [container, name, container.style.getPropertyValue(name), container.style.getPropertyPriority(name)]);
-    previous.push([video, 'visibility', video.style.getPropertyValue('visibility'), video.style.getPropertyPriority('visibility')]);
+    if (!keepVideoVisible) {
+      previous.push([video, 'visibility', video.style.getPropertyValue('visibility'), video.style.getPropertyPriority('visibility')]);
+    }
     const position = getComputedStyle(host).position;
     if (position === 'static') {
       previous.push([host, 'position', host.style.getPropertyValue('position'), host.style.getPropertyPriority('position')]);
@@ -240,7 +247,11 @@
       // Reassert ownership only after a complete image was presented. Stable
       // frames do not mutate the DOM or produce an additional presentation.
       if (host.isConnected && canvas.parentElement !== host) host.appendChild(canvas);
-      for (const node of [video, container]) {
+      // In Gecko, setting visibility:hidden on <video> removes nsVideoFrame from
+      // the display list and stalls requestVideoFrameCallback. Like live mode,
+      // the opaque alpha:false canvas at z-index:1 covers the native video.
+      const hiddenNodes = keepVideoVisible ? [container] : [video, container];
+      for (const node of hiddenNodes) {
         if (node.style.getPropertyValue('visibility') !== 'hidden' || node.style.getPropertyPriority('visibility') !== 'important') {
           node.style.setProperty('visibility', 'hidden', 'important');
         }
@@ -257,7 +268,7 @@
       return true;
     }
     return { draw, restore, host, needsResize: () => layoutKey() !== lastLayout,
-      status: () => ({ surface: 'single-canvas', presents: frames, comments, skipped, committed,
+      status: () => ({ surface: 'single-canvas', keepVideoVisible, presents: frames, comments, skipped, committed,
         textCache: { entries: sprites.size, bytes: spriteBytes, hits: spriteHits, builds: spriteBuilds,
           maxBytes: maxSpriteBytes, maxEntries: maxSprites, maxEntryBytes } }) };
   }

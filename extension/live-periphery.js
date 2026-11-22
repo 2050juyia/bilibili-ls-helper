@@ -95,6 +95,7 @@
   function storageChanged(changes, area) { if (area === 'local' && changes[KEY]) apply(changes[KEY].newValue?.hidePlaylistIndicator); }
   function hidePage() { leaving = true; stop(); }
   function showPage() { leaving = false; refresh(); }
+  const ext = typeof browser === 'object' && browser?.storage ? browser : chrome;
   function destroy() {
     if (destroyed) return;
     destroyed = true; stop();
@@ -103,7 +104,7 @@
     globalThis.removeEventListener('pagehide', hidePage);
     globalThis.removeEventListener('pageshow', showPage);
     globalThis.removeEventListener('popstate', refresh);
-    chrome.storage.onChanged.removeListener(storageChanged);
+    ext.storage.onChanged.removeListener(storageChanged);
   }
   globalThis.BFDLivePeriphery = { set: apply, destroy,
     readStatus: () => ({ enabled, active: !!currentFullscreen, hiddenBranches: owned.size, observedNodes: observed.size, destroyed }) };
@@ -112,7 +113,7 @@
   globalThis.addEventListener('pagehide', hidePage);
   globalThis.addEventListener('pageshow', showPage);
   globalThis.addEventListener('popstate', refresh);
-  chrome.storage.onChanged.addListener(storageChanged);
+  ext.storage.onChanged.addListener(storageChanged);
   const initial = revision;
-  chrome.storage.local.get(KEY).then(value => { if (!destroyed && initial === revision) { enabled = value[KEY]?.hidePlaylistIndicator === true; refresh(); } }).catch(() => {});
+  ext.storage.local.get(KEY).then(value => { if (!destroyed && initial === revision) { enabled = value?.[KEY]?.hidePlaylistIndicator === true; refresh(); } }).catch(() => {});
 })();

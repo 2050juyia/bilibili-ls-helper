@@ -5,7 +5,7 @@
 ## 1.5.0
 
 - 新增桌面端 Mozilla Firefox（140+，含 ESR 及正式版）完整适配，统一兼容 `browser.*` 与 `chrome.*` WebExtensions 命名空间及 Promise 消息回复。
-- 修复 Firefox（Gecko）下点播原 `<video>` 被设为 `visibility: hidden` 后视频帧脱离显示列表、导致 `requestVideoFrameCallback` 停摆的问题；Firefox 下保留底层视频可见并由上方不透明合成画布完整覆盖，Chromium 端保持原有行为不变。
+- 修复 Firefox（Gecko）下原 `<video>` 被重绘到不透明 `OffscreenCanvas` 时引发跨进程像素回读（`VideoDecoderManagerChild::Readback`）及不透明画布遮挡节流（Occlusion Culling）导致原视频帧率下降的问题；Firefox 点播与直播统一采用 `alpha: true` 透明脏矩形局部擦除弹幕层叠加于原生硬件 `<video>` 之上，仅弹幕随视频帧回调更新而原视频保持满帧直出，Chromium 端保持原有单画布行为不变。
 - 修复点播与直播在标签页切至后台期间（Firefox 默认挂起后台视频解码、仅音频推进）被 `timeupdate` 误判为帧回调停滞而耗尽 3 次恢复预算的问题；切回前台后自动恢复帧回调同步。
 - 弹窗新增B站站点访问权限检查与一键请求授权提示，避免 Firefox MV3 用户关闭站点权限时脚本静默不生效。
 - 打包脚本新增双端分流构建：除原有 Chromium 解压包外，同时输出 `manifest.json` 位于根目录、含固定 `gecko.id` 与 `data_collection_permissions` 隐私声明且零警告的 `-firefox.zip` 专用包，配套新增 Firefox 图文安装教程与 AMO 上架清单。

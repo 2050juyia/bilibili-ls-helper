@@ -2,10 +2,11 @@
   "version": "1.5.0",
   "basePublicCommit": "f168acfc95374cfcdc9245ea3e3d214cb6c82cba",
   "baseLocalVerifiedCommit": "b2f28183ad43e777f4e56de4e99a28be1f1d224f",
-  "changeScope": "Firefox 140+ full WebExtensions/Gecko adaptation, background-tab stall protection, dual-target Chromium & Firefox/AMO packaging, and Firefox documentation.",
+  "changeScope": "Firefox 140+ full WebExtensions/Gecko adaptation with zero-readback transparent dirty-rect danmaku overlay, background-tab stall protection, dual-target Chromium & Firefox/AMO packaging, and Firefox documentation.",
   "modifiedExtensionFiles": [
     "extension/bridge.js",
     "extension/compositor.js",
+    "extension/live-compositor.js",
     "extension/live-periphery.js",
     "extension/live-sync.js",
     "extension/manifest.json",
@@ -16,23 +17,23 @@
   ],
   "extensionSha256": {
     "bridge.js": "eceaa70b21b836dd0a206db4ac1174aee2240d6d9edf2ceb6b940840fc5ff7ec",
-    "compositor.js": "1eaa6e4bf7f7b6cf1d45fa23c3751ccf26a88304ee1d8583908c9ac782e3d56d",
+    "compositor.js": "0442e0447bc0938346cf7a2a114d4a23650fcdd5b897ad84f433912c18733adf",
     "core.js": "9ac4fe56b1e23702ee0e4a61e7747091f575ff7026b146d5663e4a505e327fd6",
     "hook.js": "40a6b9d82c3b1f0c5ed3e60efd992cfc45ddb15e2a5c9602d10db5d64a001a38",
     "icons/icon128.png": "4fdad1de5d8ac0bdbf5677cb03f38617aa6fa67d385e65174aebd6ff654e802c",
     "icons/icon16.png": "c301a605d42b4980b799b6cd4a59c9dacb3e9fb29d5476681f51eec7fd7f5d10",
     "icons/icon32.png": "41e0b9879856851eab328d2ba681d0497301d27ef06ecb7f1fe5122b47eff06c",
     "icons/icon48.png": "02b384918dbc1a6e44ec81bace55a198861ebe6c3ff39af91c634db0e33be9b9",
-    "live-compositor.js": "7fc8df3f55406ea3b98f9237b0a77baf539939feccf653d3a896a622ba9fb5f7",
+    "live-compositor.js": "aa5aaa0f47b9e01db813867ec9c9f4dfdad1e06eacbdf973b2bcdfde648892a0",
     "live-periphery.js": "1e4a77902cbf73a51ad366ab733b29d2bbfb631b5087021b4f4b266d95bf1490",
     "live-quality.js": "002dcae191ef49049c649a280b50b6b71ddf9cb5644f501ed1a1d281e8ddc4f7",
-    "live-sync.js": "852da63fd3d936d221465118f9cb28e95eb72c2af7d6e980a3f5d13f30ae81fe",
+    "live-sync.js": "f70ec2973db91c0ffaca63b3bc219b7db9964127b21451ec169eb9291158d0c4",
     "manifest.json": "08b33b16a093a6127e54d93534931e0e4802194d9855dc192ba510d703283622",
     "playlist-indicator.js": "1473de8c7cd2121bba3f82031b6589827f61422b97cba2dc5669f18f17d32be0",
     "popup.css": "580394f17fe9ecfd24499a4c9e3e0317cf8c87708ce490202023333faa01a8c8",
     "popup.html": "08f09e72a20e6dd07652109de9d6c711dd2f22ebb1c0895edc43cef33ffc442b",
     "popup.js": "6db9764722a92118d06bb637fc4bb6b8fc716acf0c3a6340baea7464136dc432",
-    "video-sync.js": "0da98504adcdaa571afa0779349f36710f432ddfe1a785e891004a006b3833c3"
+    "video-sync.js": "222113ec5baf9a9865d3e1f38b98ae5745c863573f3a44ab1f6d390ea0aaaf9a"
   },
   "releasePackaging": "Built from committed HEAD with scripts/package.py into both Chromium folder ZIP and Firefox/AMO root-manifest ZIP; release-manifest.json records commit and SHA256 checksums."
 }

@@ -183,6 +183,7 @@
       if (!connected(s) || !same(s, target())) { stop('直播播放器已更换'); clearRecovery('target-changed', true); update(desired); return; }
       try {
         if (!Number.isFinite(metadata.mediaTime)) throw Error('视频帧时间不可用');
+        if (videoFrame) schedule(s);
         s.inFrame = true;
         const painted = s.surface.draw(now, metadata);
         s.inFrame = false;
@@ -196,7 +197,6 @@
           if (attempts > 0) { s.stableFrames = painted ? s.stableFrames + 1 : 0; if (s.stableFrames >= 120) { clearRecovery('recovered', true); s.stableFrames = 0; } }
         } else s.uiFrames++;
         if (painted) s.presents++;
-        if (videoFrame) schedule(s);
       } catch (error) { s.inFrame = false; recover(s, 'draw', error); }
     }
     function update(settings, recoveryAttach = false) {

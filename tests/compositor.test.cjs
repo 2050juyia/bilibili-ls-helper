@@ -16,7 +16,7 @@ function harness() {
       classList: { contains: name => name === 'bili-danmaku-x-roll' } } };
   const renderer = { container, manager: { visualArray: [item] }, renderTime: 1 };
   const output = { transferFromImageBitmap(bitmap) { presents.push([...bitmap.operations]); operations.push(['present']); } };
-  const canvas = { style: properties(), setAttribute() {}, getContext: () => output,
+  const canvas = { style: properties(), setAttribute() {}, getContext: type => type === '2d' ? context2d : output,
     remove() { host.child = null; this.parentElement = null; } };
   const context2d = {}, textContext = {};
   for (const [target, id] of [[context2d, 'video'], [textContext, 'text']]) {
@@ -27,7 +27,7 @@ function harness() {
   }
   class OffscreenCanvas {
     constructor(w, h) { this.width = w; this.height = h; this.index = buffers.length; buffers.push(this); }
-    getContext() { return this.index === 0 ? context2d : textContext; }
+    getContext(type, attrs) { return attrs?.alpha === false ? context2d : textContext; }
     transferToImageBitmap() { const bitmap = { operations: [...operations], close() {} }; operations.push(['bitmap']); return bitmap; }
   }
   const textCss = { display: 'flex', opacity: '0.8', color: '#fff', fontWeight: '700', fontSize: '20px', fontFamily: 'Arial', textShadow: 'none', lineHeight: '22.5px' };
@@ -317,20 +317,35 @@ test('own border color changes including zero invalidate a retained sprite witho
   assert.equal(h.presents.length, 3);
 });
 
-test('Firefox Gecko keeps native video visible beneath the opaque composite canvas while hiding native danmaku', () => {
+test('Firefox Gecko uses a transparent dirty-rect danmaku overlay without reading back or occluding native video', () => {
   const h = harness();
   h.context.navigator = { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:160.0) Gecko/20100101 Firefox/160.0' };
   vm.runInContext(fs.readFileSync(require.resolve('../extension/compositor.js'), 'utf8'), h.context);
   h.video.style.setProperty('visibility', 'visible');
   const surface = h.context.BFDCompositor.create(h.renderer, h.video);
+  assert.equal(surface.status().overlayOnly, true);
   assert.equal(surface.status().keepVideoVisible, true);
+  assert.equal(surface.status().surface, 'danmaku-overlay');
+
+  // Frame 1: builds cached sprite, never calls drawImage(video) or transferToImageBitmap
   surface.draw();
-  assert.equal(h.presents.length, 1);
-  assert.equal(h.video.style.getPropertyValue('visibility'), 'visible', 'Firefox must keep <video> visible so requestVideoFrameCallback never stalls');
+  assert.equal(h.presents.length, 0, 'Firefox overlay must not call transferToImageBitmap');
+  assert(!h.operations.some(op => op[0] === 'drawImage' && op[1] === h.video), 'Firefox overlay must never read back <video> pixels');
+  assert(!h.operations.some(op => op[0] === 'fillRect'), 'Firefox overlay must stay transparent rather than filling black');
+  assert.equal(surface.status().presents, 1);
+  assert.equal(surface.status().textCache.builds, 1);
+  assert.equal(h.video.style.getPropertyValue('visibility'), 'visible');
   assert.equal(h.container.style.getPropertyValue('visibility'), 'hidden');
-  assert.equal(h.container.style.getPropertyPriority('visibility'), 'important');
-  assert.equal(h.container.style.getPropertyValue('pointer-events'), 'none');
-  assert.equal(h.canvas.style.getPropertyValue('visibility'), 'visible');
+
+  // Frame 2: clears only previous comment dirty rect and reuses cached sprite
+  const opsBefore = h.operations.length;
+  h.renderer.renderTime += 1 / 60;
+  surface.draw();
+  const frame2Ops = h.operations.slice(opsBefore);
+  assert(frame2Ops.some(op => op[0] === 'clearRect' && op[3] < 400), 'must clear bounded dirty rect rather than full 4K frame');
+  assert(!frame2Ops.some(op => op[0] === 'fillText'), 'frame 2 must reuse cached sprite even below 32 comments');
+  assert.equal(surface.status().textCache.hits, 1);
+
   surface.restore();
   assert.equal(h.video.style.getPropertyValue('visibility'), 'visible');
   assert.equal(h.container.style.getPropertyValue('visibility'), '');

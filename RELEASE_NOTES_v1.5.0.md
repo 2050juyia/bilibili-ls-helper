@@ -6,7 +6,7 @@
 
 - **Firefox（140+）完整适配：**
   - 统一支持 WebExtensions `browser.*` 与 `chrome.*` 命名空间及 `browser.runtime.onMessage` Promise 异步响应。
-  - 针对 Firefox（Gecko）渲染管线保持点播底层 `<video>` 可见性、由上方不透明合成画布完整覆盖，避免 `visibility: hidden` 导致 `requestVideoFrameCallback` 停止触发；Edge / Chrome 继续保持既有路径不变。
+  - 针对 Firefox（Gecko）渲染管线，点播与直播均采用 `alpha: true` 透明脏矩形弹幕叠加层（`danmaku-overlay`），完全不回读或遮挡底层原生硬件 `<video>`，消除 2K/4K 高分屏下 `OffscreenCanvas` 跨进程回读与不透明遮挡裁剪导致的原视频掉帧问题；Edge / Chrome 继续保持既有单画布路径不变。
   - 点播与直播同步控制器新增后台标签页挂起保护：切至后台期间（Firefox 默认挂起视频解码、仅保留音频推进）不再误触发帧回调停滞或耗尽 3 次恢复预算，切回前台后自动接续视频帧回调。
   - 弹窗新增当前B站域名访问权限自检与同步请求授权入口，并消除展开说明时的横向滚动条。
 - **共用播放指示图标屏蔽（自 1.4.6 合入）：**
@@ -23,7 +23,7 @@
 
 ## 验证范围
 
-- 256 项 Node.js 单元测试、11 个扩展脚本语法检查全部通过。
+- 257 项 Node.js 单元测试、11 个扩展脚本语法检查全部通过。
 - 本机 Mozilla Firefox 160.0.1 受控 Marionette 端到端验收通过 5 组检查（根目录 `-firefox.zip` 载入、弹窗存储保存、点播连续视频帧回调合成、跨世界 Promise 消息往返、直播文字与表情 `ImageDecoder` 合成）。
 - 既有 Edge 播放指示图标与存储事件受控验收保持通过。
 

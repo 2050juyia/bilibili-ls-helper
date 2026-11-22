@@ -3,8 +3,13 @@
   'use strict';
   const MAX_BYTES = 48 * 1024 * 1024, MAX_IMAGE_BYTES = 16 * 1024 * 1024;
   let sequence = 0;
-  function create({ video, host, layer, mode = 'video-sync', position = 'top' }) {
+  function isGecko(target) {
+    try { return /\bFirefox\//i.test(target?.navigator?.userAgent || ''); }
+    catch { return false; }
+  }
+  function create({ video, host, layer, mode = 'video-sync', position = 'top', overlayOnly: explicitOverlay }) {
     if (!video || !host || !layer) throw new Error('直播播放器尚未准备好');
+    const overlayOnly = typeof explicitOverlay === 'boolean' ? explicitOverlay : isGecko(root);
     const canvas = document.createElement('canvas'), mask = document.createElement('style');
     const token = 'live-' + (++sequence), attribute = 'data-bfd-live-mask';
     canvas.className = 'bfd-live-composite'; canvas.setAttribute('aria-hidden', 'true');
@@ -14,12 +19,13 @@
     // layout rectangles and native opacity available for video-frame sampling.
     mask.textContent = '[' + attribute + '="' + token + '"]{clip-path:inset(50%)!important}' +
       '[' + attribute + '="' + token + '"],[' + attribute + '="' + token + '"] *{visibility:hidden!important;pointer-events:none!important}';
-    const buffer = new OffscreenCanvas(1, 1), context = buffer.getContext('2d', { alpha: false });
+    const buffer = overlayOnly ? null : new OffscreenCanvas(1, 1);
+    const context = overlayOnly ? canvas.getContext('2d', { alpha: true }) : buffer.getContext('2d', { alpha: false });
     const scratch = new OffscreenCanvas(1, 1), scratchContext = scratch.getContext('2d');
-    const output = canvas.getContext('bitmaprenderer', { alpha: false });
+    const output = overlayOnly ? context : canvas.getContext('bitmaprenderer', { alpha: false });
     if (!context || !scratchContext || !output) throw new Error('浏览器不支持直播合成画布');
     const previous = [], assets = new Map(), sprites = new Map(), lifetimes = new Map(), forcedHidden = new Map();
-    let disposed = false, committed = false, presents = 0, comments = 0, skipped = 0, bytes = 0, layout = '', activeLoads = 0;
+    let disposed = false, committed = false, presents = 0, comments = 0, skipped = 0, bytes = 0, layout = '', activeLoads = 0, dirtyRects = [];
     let cacheHits = 0, cacheBuilds = 0, builds = 0, placeholders = 0, imageFailures = 0, staticFallbacks = 0, unsupported = 0, fixedOverflow = 0;
     let presentationRefresh = null;
     let styles = new WeakMap();
@@ -298,13 +304,25 @@
       const box = boxOf(host), source = boxOf(video), dmBox = boxOf(layer), dpr = Math.max(0.25, Math.min(4, root.devicePixelRatio || 1));
       if (!(box.width > 0 && box.height > 0 && video.videoWidth > 0 && video.videoHeight > 0)) return false;
       const width = Math.max(1, Math.round(box.width * dpr)), height = Math.max(1, Math.round(box.height * dpr));
-      if (buffer.width !== width || buffer.height !== height) { buffer.width = canvas.width = width; buffer.height = canvas.height = height; for (const key of sprites.keys()) dropSprite(key); }
+      const storeWidth = buffer ? buffer.width : canvas.width, storeHeight = buffer ? buffer.height : canvas.height;
+      if (storeWidth !== width || storeHeight !== height) {
+        if (buffer) { buffer.width = width; buffer.height = height; }
+        canvas.width = width; canvas.height = height;
+        dirtyRects = [];
+        for (const key of sprites.keys()) dropSprite(key);
+      }
       builds = 0; comments = skipped = placeholders = unsupported = fixedOverflow = 0;
-      context.setTransform(dpr, 0, 0, dpr, 0, 0); context.globalAlpha = 1; context.fillStyle = '#000'; context.fillRect(0, 0, box.width, box.height);
-      const css = cssOf(video), fit = css.objectFit || 'contain'; let w = source.width, h = source.height;
-      if (fit !== 'fill') { let scale = (fit === 'cover' ? Math.max : Math.min)(w / video.videoWidth, h / video.videoHeight); if (fit === 'none') scale = 1; if (fit === 'scale-down') scale = Math.min(1, scale); w = video.videoWidth * scale; h = video.videoHeight * scale; }
-      context.save(); context.beginPath(); context.rect(source.x - box.x, source.y - box.y, source.width, source.height); context.clip();
-      context.drawImage(video, source.x - box.x + (source.width - w) / 2, source.y - box.y + (source.height - h) / 2, w, h); context.restore();
+      context.setTransform(dpr, 0, 0, dpr, 0, 0); context.globalAlpha = 1;
+      if (overlayOnly) {
+        for (const [rx, ry, rw, rh] of dirtyRects) context.clearRect(rx - 2, ry - 2, rw + 4, rh + 4);
+        dirtyRects = [];
+      } else {
+        context.fillStyle = '#000'; context.fillRect(0, 0, box.width, box.height);
+        const css = cssOf(video), fit = css.objectFit || 'contain'; let w = source.width, h = source.height;
+        if (fit !== 'fill') { let scale = (fit === 'cover' ? Math.max : Math.min)(w / video.videoWidth, h / video.videoHeight); if (fit === 'none') scale = 1; if (fit === 'scale-down') scale = Math.min(1, scale); w = video.videoWidth * scale; h = video.videoHeight * scale; }
+        context.save(); context.beginPath(); context.rect(source.x - box.x, source.y - box.y, source.width, source.height); context.clip();
+        context.drawImage(video, source.x - box.x + (source.width - w) / 2, source.y - box.y + (source.height - h) / 2, w, h); context.restore();
+      }
       context.save(); context.beginPath(); context.rect(dmBox.x - box.x, dmBox.y - box.y, dmBox.width, dmBox.height); context.clip();
       const mediaTime = Number.isFinite(metadata.mediaTime) ? metadata.mediaTime : Number(video.currentTime) || 0;
       const active = [...layer.querySelectorAll('.bili-danmaku-x-dm')].filter(item => {
@@ -330,14 +348,20 @@
           if (y === undefined) { fixedOverflow++; skipped++; continue; }
           life.y = y; life.height = itemBox.height; life.area = dmBox.height; occupied.push({ y, height: itemBox.height }); dy = dmBox.y + y - itemBox.y;
         }
+        if (overlayOnly) {
+          dirtyRects.push([itemBox.x + dx - box.x - 12, itemBox.y + dy - box.y - 12, itemBox.width + 24, itemBox.height + 24]);
+        }
         let painted = false;
         function walk(node) {
           if (node.nodeType === 3) {
             const text = node.textContent; if (!text || !text.trim()) return;
             const parent = node.parentElement || item; if (!visible(parent)) return;
             const rect = textRect(node, parent), style = cssOf(parent), entry = textTile(text, style, rect, dpr); if (!entry) { unsupported++; return; }
+            const tx = Math.round((rect.x + dx - box.x - entry.pad) * dpr) / dpr, ty = Math.round((rect.y + dy - box.y - entry.pad) * dpr) / dpr;
+            const tw = entry.canvas.width / dpr, th = entry.canvas.height / dpr;
+            if (overlayOnly) dirtyRects.push([tx - 2, ty - 2, tw + 4, th + 4]);
             context.globalAlpha = opacity(parent, host);
-            context.drawImage(entry.canvas, Math.round((rect.x + dx - box.x - entry.pad) * dpr) / dpr, Math.round((rect.y + dy - box.y - entry.pad) * dpr) / dpr, entry.canvas.width / dpr, entry.canvas.height / dpr); painted = true; return;
+            context.drawImage(entry.canvas, tx, ty, tw, th); painted = true; return;
           }
           if (node.nodeType !== 1 || !visible(node)) return;
           const tag = node.tagName?.toLowerCase();
@@ -362,7 +386,9 @@
         walk(item); if (painted) comments++;
       }
       context.restore(); context.globalAlpha = 1;
-      const bitmap = buffer.transferToImageBitmap(); try { output.transferFromImageBitmap(bitmap); } finally { close(bitmap); }
+      if (!overlayOnly) {
+        const bitmap = buffer.transferToImageBitmap(); try { output.transferFromImageBitmap(bitmap); } finally { close(bitmap); }
+      }
       presents++; committed = true; ownMask(); layout = layoutKey();
       for (const [key, entry] of sprites) if (entry.seen < presents - 2) dropSprite(key);
       // Expired in-flight images must release their loading slots too.
@@ -375,9 +401,11 @@
       for (const [node, old] of forcedHidden) restoreHidden(node, old); forcedHidden.clear();
       for (const [node, name, value, priority, owned] of previous) if (node.style.getPropertyValue(name) === owned) { if (value) node.style.setProperty(name, value, priority); else node.style.removeProperty(name); }
       for (const key of sprites.keys()) dropSprite(key); for (const key of assets.keys()) dropAsset(key); lifetimes.clear();
-      buffer.width = buffer.height = scratch.width = scratch.height = canvas.width = canvas.height = 1;
+      if (buffer) buffer.width = buffer.height = 1;
+      scratch.width = scratch.height = canvas.width = canvas.height = 1;
+      dirtyRects = [];
     }
-    function status() { return { committed: committed && !disposed, presents, comments, skipped, placeholders, unsupported, fixedOverflow, imageFailures, staticFallbacks, fallbackReasons: [...fallbackReasons], assets: assets.size, pendingImages: [...assets.values()].filter(e => e.state === 'loading' || e.state === 'queued').length, animatedImages: [...assets.values()].filter(e => e.frames.length > 1 && !e.fallback).length, cacheBytes: bytes, textCache: sprites.size, cacheHits, cacheBuilds, presentationRefresh: { active: !!presentationRefresh, remaining: presentationRefresh?.remaining || 0 }, scope: 'ordinary-native-dom-and-emoticons', specialEffectsSupported: false, nativeSpecialEffects: 'suppressed-in-danmaku-layer' }; }
+    function status() { return { surface: overlayOnly ? 'danmaku-overlay' : 'single-canvas', overlayOnly, committed: committed && !disposed, presents, comments, skipped, placeholders, unsupported, fixedOverflow, imageFailures, staticFallbacks, fallbackReasons: [...fallbackReasons], assets: assets.size, pendingImages: [...assets.values()].filter(e => e.state === 'loading' || e.state === 'queued').length, animatedImages: [...assets.values()].filter(e => e.frames.length > 1 && !e.fallback).length, cacheBytes: bytes, textCache: sprites.size, cacheHits, cacheBuilds, presentationRefresh: { active: !!presentationRefresh, remaining: presentationRefresh?.remaining || 0 }, scope: 'ordinary-native-dom-and-emoticons', specialEffectsSupported: false, nativeSpecialEffects: 'suppressed-in-danmaku-layer' }; }
     return { draw, restore, status, refreshPresentation, cancelPresentationRefresh, needsResize: () => !disposed && layoutKey() !== layout };
   }
   root.BFDLiveCompositor = { create };

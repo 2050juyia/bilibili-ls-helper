@@ -22,7 +22,7 @@ function harness(options = {}) {
   const context = { URL, Blob, AbortController, Uint8Array, devicePixelRatio: options.dpr || 2, location: { href: 'https://live.bilibili.com/1', origin: 'https://live.bilibili.com' },
     requestAnimationFrame() { throw new Error('must not register rAF'); }, setTimeout() { throw new Error('must not register timer'); },
     getComputedStyle: n => n.css,
-    document: { head, documentElement, createElement(tag) { const n = node(tag); if (tag === 'canvas') { canvas = n; n.getContext = (kind, options) => { contexts.push({ kind, options }); return { transferFromImageBitmap(bitmap) { presents.push(bitmap); } }; }; } else { mask = n; n.textContent = ''; n.sheet = { disabled: false }; } return n; },
+    document: { head, documentElement, createElement(tag) { const n = node(tag); if (tag === 'canvas') { canvas = n; const overlayCtx = {}; for (const method of ['setTransform', 'fillRect', 'clearRect', 'beginPath', 'rect', 'clip', 'save', 'restore', 'fillText', 'strokeText', 'strokeRect', 'drawImage']) overlayCtx[method] = (...args) => { draws.push({ index: 'canvas-2d', method, args, alpha: overlayCtx.globalAlpha }); }; n.getContext = (kind, options) => { contexts.push({ kind, options }); return kind === '2d' ? overlayCtx : { transferFromImageBitmap(bitmap) { presents.push(bitmap); } }; }; } else { mask = n; n.textContent = ''; n.sheet = { disabled: false }; } return n; },
       createRange() { let selected; return { selectNodeContents(n) { selected = n; }, getBoundingClientRect: () => selected.box, detach() {} }; } },
     fetch: async (url, init) => { fetches.push({ url, init }); return { ok: true, type: 'cors', headers: { get: key => key === 'content-type' ? 'image/png' : null }, arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer }; },
     createImageBitmap: async () => ({ width: 59, height: 59, id: 'static', close() { closes.push(this.id); } }) };
@@ -449,4 +449,28 @@ test('failed or unpaintable live draws cancel a pending presentation refresh imm
     assert.equal(h.presents.length, 1); assert.equal(h.canvas.style.getPropertyValue('opacity'), '');
     assert.equal(s.status().presentationRefresh.active, false); s.restore();
   }
+});
+
+test('Firefox Gecko live compositor uses a transparent dirty-rect danmaku overlay without video readbacks', () => {
+  const h = harness();
+  h.context.navigator = { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:160.0) Gecko/20100101 Firefox/160.0' };
+  vm.runInContext(source, h.context);
+  const s = h.create();
+  assert.equal(s.status().overlayOnly, true);
+  assert.equal(s.status().surface, 'danmaku-overlay');
+
+  s.draw();
+  assert.equal(h.presents.length, 0, 'Firefox live overlay must not use transferToImageBitmap');
+  assert(!h.draws.some(d => d.method === 'drawImage' && d.args[0] === h.video), 'must never read back live <video>');
+  assert(!h.draws.some(d => d.index === 'canvas-2d' && d.method === 'fillRect'), 'overlay backdrop must stay transparent');
+  assert.equal(s.status().presents, 1);
+  assert.equal(s.status().comments, 1);
+
+  const before = h.draws.length;
+  h.item.box.x = 520; h.text.box.x = 520;
+  s.draw();
+  const frame2 = h.draws.slice(before).filter(d => d.index === 'canvas-2d');
+  assert(frame2.some(d => d.method === 'clearRect' && d.args[2] < 300), 'frame 2 clears bounded dirty rects only');
+  assert.equal(s.status().cacheHits, 1);
+  s.restore();
 });

@@ -6,19 +6,24 @@
     catch { return false; }
   }
   function create(renderer, video, options = {}) {
-    const keepVideoVisible = typeof options?.keepVideoVisible === 'boolean' ? options.keepVideoVisible : isGecko(root);
+    const overlayOnly = typeof options?.overlayOnly === 'boolean' ? options.overlayOnly
+      : (typeof options?.keepVideoVisible === 'boolean' ? options.keepVideoVisible : isGecko(root));
+    const keepVideoVisible = overlayOnly;
     const container = renderer.container;
     const host = video.closest('.bpx-player-video-perch') || video.parentElement;
     const canvas = document.createElement('canvas');
     canvas.className = 'bfd-video-composite';
     canvas.setAttribute('aria-hidden', 'true');
     canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;visibility:hidden;';
-    const buffer = new OffscreenCanvas(1, 1);
-    const context = buffer.getContext('2d', { alpha: false });
+    // In Gecko, drawImage(video) + OffscreenCanvas.transferToImageBitmap causes
+    // cross-process GPU->CPU readbacks and alpha:false triggers video occlusion
+    // throttling. Use a transparent danmaku-only 2D overlay over native <video>.
+    const buffer = overlayOnly ? null : new OffscreenCanvas(1, 1);
+    const context = overlayOnly ? canvas.getContext('2d', { alpha: true }) : buffer.getContext('2d', { alpha: false });
     // Reuse one transparent tile, rather than keeping a bitmap per comment.
     const textBuffer = new OffscreenCanvas(1, 1);
     const textContext = textBuffer.getContext('2d', { alpha: true });
-    const output = canvas.getContext('bitmaprenderer', { alpha: false });
+    const output = overlayOnly ? context : canvas.getContext('bitmaprenderer', { alpha: false });
     if (!context || !textContext || !output) throw new Error('浏览器不支持合成画布');
     const previous = ['visibility', 'pointer-events'].map(name => [container, name, container.style.getPropertyValue(name), container.style.getPropertyPriority(name)]);
     if (!keepVideoVisible) {
@@ -29,7 +34,7 @@
       previous.push([host, 'position', host.style.getPropertyValue('position'), host.style.getPropertyPriority('position')]);
       host.style.setProperty('position', 'relative');
     }
-    let frames = 0, comments = 0, skipped = 0, committed = false, lastLayout = '';
+    let frames = 0, comments = 0, skipped = 0, committed = false, lastLayout = '', dirtyRects = [];
     function layoutKey() {
       const hostBox = host.getBoundingClientRect(), videoBox = video.getBoundingClientRect(), dmBox = container.getBoundingClientRect();
       return [hostBox.width, hostBox.height, videoBox.x - hostBox.x, videoBox.y - hostBox.y, videoBox.width, videoBox.height,
@@ -56,8 +61,10 @@
         if (value) node.style.setProperty(name, value, priority); else node.style.removeProperty(name);
       }
       // Release full-resolution backing stores after a mode/route change.
-      buffer.width = 1; buffer.height = 1; canvas.width = 1; canvas.height = 1;
+      if (buffer) { buffer.width = 1; buffer.height = 1; }
+      canvas.width = 1; canvas.height = 1;
       textBuffer.width = 1; textBuffer.height = 1;
+      dirtyRects = [];
       clearSprites();
     }
     host.appendChild(canvas);
@@ -174,24 +181,33 @@
       if (!(box.width > 0 && box.height > 0 && video.videoWidth > 0 && video.videoHeight > 0)) return false;
       const dpr = root.devicePixelRatio || 1;
       const width = Math.max(1, Math.round(box.width * dpr)), height = Math.max(1, Math.round(box.height * dpr));
-      if (buffer.width !== width || buffer.height !== height) {
-        buffer.width = width; buffer.height = height; canvas.width = width; canvas.height = height;
+      const storeWidth = buffer ? buffer.width : canvas.width, storeHeight = buffer ? buffer.height : canvas.height;
+      if (storeWidth !== width || storeHeight !== height) {
+        if (buffer) { buffer.width = width; buffer.height = height; }
+        canvas.width = width; canvas.height = height;
         textBuffer.width = 1; textBuffer.height = 1;
+        dirtyRects = [];
         clearSprites();
       }
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      context.globalAlpha = 1; context.fillStyle = '#000'; context.fillRect(0, 0, box.width, box.height);
-      const style = getComputedStyle(video), fit = style.objectFit;
-      let w = source.width, h = source.height;
-      if (fit !== 'fill') {
-        let scale = (fit === 'cover' ? Math.max : Math.min)(w / video.videoWidth, h / video.videoHeight);
-        if (fit === 'none') scale = 1;
-        if (fit === 'scale-down') scale = Math.min(1, scale);
-        w = video.videoWidth * scale; h = video.videoHeight * scale;
+      context.globalAlpha = 1;
+      if (overlayOnly) {
+        for (const [rx, ry, rw, rh] of dirtyRects) context.clearRect(rx - 2, ry - 2, rw + 4, rh + 4);
+        dirtyRects = [];
+      } else {
+        context.fillStyle = '#000'; context.fillRect(0, 0, box.width, box.height);
+        const style = getComputedStyle(video), fit = style.objectFit;
+        let w = source.width, h = source.height;
+        if (fit !== 'fill') {
+          let scale = (fit === 'cover' ? Math.max : Math.min)(w / video.videoWidth, h / video.videoHeight);
+          if (fit === 'none') scale = 1;
+          if (fit === 'scale-down') scale = Math.min(1, scale);
+          w = video.videoWidth * scale; h = video.videoHeight * scale;
+        }
+        const x = source.x - box.x + (source.width - w) / 2, y = source.y - box.y + (source.height - h) / 2;
+        context.save(); context.beginPath(); context.rect(source.x - box.x, source.y - box.y, source.width, source.height); context.clip();
+        context.drawImage(video, x, y, w, h); context.restore();
       }
-      const x = source.x - box.x + (source.width - w) / 2, y = source.y - box.y + (source.height - h) / 2;
-      context.save(); context.beginPath(); context.rect(source.x - box.x, source.y - box.y, source.width, source.height); context.clip();
-      context.drawImage(video, x, y, w, h); context.restore();
       comments = 0; skipped = 0;
       newSprites = 0;
       context.save(); context.beginPath(); context.rect(dmBox.x - box.x, dmBox.y - box.y, dmBox.width, dmBox.height); context.clip();
@@ -230,26 +246,30 @@
           const reverse = node.classList.contains('bili-danmaku-x-reverse') || node.classList.contains('bili-danmaku-x-bidirection-reverse');
           left += (reverse ? 1 : -1) * item.moveDistance * progress;
         }
+        if (overlayOnly) {
+          const b = textBounds(cached), pad = Math.ceil(cached.lineWidth + 3);
+          dirtyRects.push([left + b.left - pad, top + b.top - pad, b.right - b.left + pad * 2, b.bottom - b.top + pad * 2]);
+        }
         context.globalAlpha = Math.max(0, Math.min(1, cached.opacity));
         // Even a few long, translucent comments can force expensive copies
         // from the shared mutable tile. Reuse those rasters at every density.
-        const cacheText = dense || (context.globalAlpha < 1 && (cached.shadow || cached.frames.length));
+        const cacheText = overlayOnly || dense || (context.globalAlpha < 1 && (cached.shadow || cached.frames.length));
         if (cacheText && paintSprite(cached, item, left, top, dpr, width, height)) { /* reused complete text */ }
         else if (context.globalAlpha < 1 && (cached.shadow || cached.frames.length)) paintGroup(cached, item, left, top, dpr, width, height);
         else paintText(context, cached, item, left, top);
         comments++;
       }
       context.restore();
-      // No visible DOM text moves. This is the only presentation of this image.
-      const bitmap = buffer.transferToImageBitmap();
-      try { output.transferFromImageBitmap(bitmap); } finally { bitmap.close(); }
+      // No visible DOM text moves. In Chromium, present the single off-screen bitmap;
+      // in Firefox, the direct transparent 2D overlay presents without touching <video>.
+      if (!overlayOnly) {
+        const bitmap = buffer.transferToImageBitmap();
+        try { output.transferFromImageBitmap(bitmap); } finally { bitmap.close(); }
+      }
       // Player UI actions can rewrite inline visibility or detach the output.
       // Reassert ownership only after a complete image was presented. Stable
       // frames do not mutate the DOM or produce an additional presentation.
       if (host.isConnected && canvas.parentElement !== host) host.appendChild(canvas);
-      // In Gecko, setting visibility:hidden on <video> removes nsVideoFrame from
-      // the display list and stalls requestVideoFrameCallback. Like live mode,
-      // the opaque alpha:false canvas at z-index:1 covers the native video.
       const hiddenNodes = keepVideoVisible ? [container] : [video, container];
       for (const node of hiddenNodes) {
         if (node.style.getPropertyValue('visibility') !== 'hidden' || node.style.getPropertyPriority('visibility') !== 'important') {
@@ -268,7 +288,7 @@
       return true;
     }
     return { draw, restore, host, needsResize: () => layoutKey() !== lastLayout,
-      status: () => ({ surface: 'single-canvas', keepVideoVisible, presents: frames, comments, skipped, committed,
+      status: () => ({ surface: overlayOnly ? 'danmaku-overlay' : 'single-canvas', overlayOnly, keepVideoVisible, presents: frames, comments, skipped, committed,
         textCache: { entries: sprites.size, bytes: spriteBytes, hits: spriteHits, builds: spriteBuilds,
           maxBytes: maxSpriteBytes, maxEntries: maxSprites, maxEntryBytes } }) };
   }

@@ -4,10 +4,10 @@
 
 本轮基于已验收的 1.4.6 基线（`b2f2818`）完成桌面端 Mozilla Firefox（140+）适配与双端分流构建。当前扩展文件哈希见 `SOURCE-MANIFEST.json`。
 
-- `npm test` 通过 **256 项** 检查（0 失败、0 跳过、0 取消），新增覆盖：
+- `npm test` 通过 **257 项** 检查（0 失败、0 跳过、0 取消），新增覆盖：
   - Firefox `browser.*` WebExtensions 命名空间及 `browser.runtime.onMessage` Promise 异步响应（无 `chrome` 全局变量环境）；
   - 弹窗站点访问权限检查（`permissions.contains`）及用户手势同步请求（`permissions.request`）；
-  - Firefox Gecko 下点播 `BFDCompositor` 保留底层 `<video>` 可见性（`keepVideoVisible: true`）同时隐藏原生弹幕容器；
+  - Firefox Gecko 下点播 `BFDCompositor` 与直播 `BFDLiveCompositor` 采用透明脏矩形弹幕叠加层（`overlayOnly: true, surface: "danmaku-overlay"`），零 `drawImage(video)` 像素回读、零不透明遮挡裁剪，单条弹幕亦启用精灵位图缓存；
   - 点播与直播在后台标签页（`document.hidden === true`）持续推进音频 `timeupdate` 20 秒不误判 `stale`、零恢复预算消耗，切回前台自动接续；
   - Firefox 派生 `manifest.json` 满足 AMO 规范（无 `minimum_chrome_version`、含 `gecko.id`、`strict_min_version: "140.0"`、`data_collection_permissions.required: ["none"]` 且 `manifest.json` 位于 ZIP 根目录）。
 - `npm run check` 通过全部 11 个扩展脚本语法检查。

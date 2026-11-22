@@ -260,6 +260,7 @@
           }
           s.inFrame = false;
           if (state !== s) return;
+          if (videoFrame) schedule();
           const painted = s.surface.draw();
           if (painted) s.updated++;
           if (videoFrame) { s.frames++; s.windowFrames++; } else s.uiFrames++;
@@ -273,7 +274,6 @@
             s.fps = Math.round((s.windowFrames - 1) * 10000 / (now - s.windowStart)) / 10;
             s.windowStart = now; s.windowFrames = 1;
           }
-          if (videoFrame) schedule();
         } catch (error) {
           s.inFrame = false;
           recover(s, 'draw', '同步滚动暂时停止，已恢复原生画面：' + error.message, error);

@@ -1,22 +1,24 @@
 # 检查说明
 
-## 1.5.0检查（2026-11-21）
+## 1.5.0检查（2026-11-22）
 
 本轮基于已验收的 1.4.6 基线（`b2f2818`）完成桌面端 Mozilla Firefox（140+）适配与双端分流构建。当前扩展文件哈希见 `SOURCE-MANIFEST.json`。
 
-- `npm test` 通过 **257 项** 检查（0 失败、0 跳过、0 取消），新增覆盖：
+- `npm test` 通过 **259 项** 检查（0 失败、0 跳过、0 取消），新增覆盖：
   - Firefox `browser.*` WebExtensions 命名空间及 `browser.runtime.onMessage` Promise 异步响应（无 `chrome` 全局变量环境）；
   - 弹窗站点访问权限检查（`permissions.contains`）及用户手势同步请求（`permissions.request`）；
-  - Firefox Gecko 下点播 `BFDCompositor` 与直播 `BFDLiveCompositor` 采用透明脏矩形弹幕叠加层（`overlayOnly: true, surface: "danmaku-overlay"`），零 `drawImage(video)` 像素回读、零不透明遮挡裁剪，单条弹幕亦启用精灵位图缓存；
+  - Firefox Gecko 零回读 WebGL 单画布呈现器（`BFDWebGLSurface`，`webgl2`/`webgl` 回退、Y 轴裁剪框转换、共享动态画布子区域 UV 裁剪、精灵纹理上传/释放及上下文丢失恢复）；
+  - Firefox Gecko 下点播 `BFDCompositor` 与直播 `BFDLiveCompositor` 采用 WebGL 单画布 GPU 合成（`surface: "webgl-single-canvas", backend: "webgl"`），消除 2D `OffscreenCanvas` 视频回读卡顿，并隐藏/透明化底层 `<video>` 以禁用独立 DirectComposition 视频叠加层交换链（避免 WGC 双交换链翻转干扰小黄鸭插帧）；
   - 点播与直播在后台标签页（`document.hidden === true`）持续推进音频 `timeupdate` 20 秒不误判 `stale`、零恢复预算消耗，切回前台自动接续；
   - Firefox 派生 `manifest.json` 满足 AMO 规范（无 `minimum_chrome_version`、含 `gecko.id`、`strict_min_version: "140.0"`、`data_collection_permissions.required: ["none"]` 且 `manifest.json` 位于 ZIP 根目录）。
-- `npm run check` 通过全部 11 个扩展脚本语法检查。
+- `npm run check` 通过全部 12 个扩展脚本语法检查。
 - `node scripts/firefox-ui-check.cjs` 使用本机 **Mozilla Firefox 160.0.1** 与内置 Marionette 协议执行端到端验收，5 组真机检查全部通过：
   1. `AddonManager.installTemporaryAddon` 成功安装根目录结构的 `-firefox.zip`（`isActive: true`）；
   2. `moz-extension://.../popup.html` 正常读取/写入 `browser.storage.local`，且无横向溢出；
-  3. 点播页面连续运行 >2.6 秒（跨越 2000ms 停滞检测阈值），`requestVideoFrameCallback` 持续触发呈现 44 帧、`keepVideoVisible: true`、恢复尝试次数为 0，新旧播放指示图标正常隐藏；
+  3. 点播页面连续运行 >2.6 秒（跨越 2000ms 停滞检测阈值），`webgl-single-canvas` 持续随 `requestVideoFrameCallback` 呈现、底层 `<video>` 处于 `visibility: hidden`、恢复尝试次数为 0，新旧播放指示图标正常隐藏；
   4. `ISOLATED` 世界 `bridge.js` 与 `MAIN` 世界 `hook.js` 通过 `browser.tabs.sendMessage` 完成 Promise 状态往返（`fetch`/`xhr`/`socket` 钩子全部就绪）；
-  5. 直播房间页 `BFDLiveSync` + `BFDLiveCompositor` 连续触发帧合成，并通过 Firefox `ImageDecoder` 成功解码表情资源（`assets: 1, imageFailures: 0`）。
+  5. 直播房间页 `BFDLiveSync` + `BFDLiveCompositor` 以 `webgl-single-canvas` 连续触发帧合成（底层 `<video>` `opacity: 0`），并通过 Firefox `ImageDecoder` 成功解码与缓存表情纹理（`assets: 1, imageFailures: 0`）。
+- 另在本机 Firefox 160.0.1 真实 B 站视频页（`BV1GJ411x7h7`，同屏 45 条弹幕）执行连续 12.5 秒前台播放与 11.5 秒后台标签切换实测：`droppedVideoFrames: 0`（零视频掉帧），GPU 文字纹理缓存命中率 99.0%，切回前台后 `recovery.attempts: 0`。
 
 Firefox 测试配置与截图保存在忽略目录 `work/firefox-ui-1.5.0/`（位于 E 盘工作区）。受控浏览器验收不代替各显卡、窗口模式下的 Lossless Scaling 实机运动画面对比。
 

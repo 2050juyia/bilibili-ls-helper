@@ -25,6 +25,7 @@
       ],
       "js": [
         "core.js",
+        "webgl-surface.js",
         "compositor.js",
         "video-sync.js",
         "live-compositor.js",

@@ -7,25 +7,35 @@
     try { return /\bFirefox\//i.test(target?.navigator?.userAgent || ''); }
     catch { return false; }
   }
-  function create({ video, host, layer, mode = 'video-sync', position = 'top', overlayOnly: explicitOverlay }) {
+  function makeCanvas() {
+    const node = document.createElement('canvas');
+    node.className = 'bfd-live-composite'; node.setAttribute('aria-hidden', 'true');
+    node.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;visibility:hidden;z-index:5;';
+    return node;
+  }
+  function create({ video, host, layer, mode = 'video-sync', position = 'top', useWebGL: explicitWebGL }) {
     if (!video || !host || !layer) throw new Error('直播播放器尚未准备好');
-    const overlayOnly = typeof explicitOverlay === 'boolean' ? explicitOverlay : isGecko(root);
-    const canvas = document.createElement('canvas'), mask = document.createElement('style');
+    const wantWebGL = typeof explicitWebGL === 'boolean' ? explicitWebGL : isGecko(root);
+    let canvas = makeCanvas();
+    const mask = document.createElement('style');
     const token = 'live-' + (++sequence), attribute = 'data-bfd-live-mask';
-    canvas.className = 'bfd-live-composite'; canvas.setAttribute('aria-hidden', 'true');
-    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;visibility:hidden;z-index:5;';
     // Ancestor clipping cannot be escaped by a newly inserted descendant with
     // inline visibility:visible!important between two video callbacks. It leaves
     // layout rectangles and native opacity available for video-frame sampling.
     mask.textContent = '[' + attribute + '="' + token + '"]{clip-path:inset(50%)!important}' +
       '[' + attribute + '="' + token + '"],[' + attribute + '="' + token + '"] *{visibility:hidden!important;pointer-events:none!important}';
-    const buffer = overlayOnly ? null : new OffscreenCanvas(1, 1);
-    const context = overlayOnly ? canvas.getContext('2d', { alpha: true }) : buffer.getContext('2d', { alpha: false });
+    const webgl = wantWebGL ? (root.BFDWebGLSurface?.create?.(canvas) || null) : null;
+    if (wantWebGL && !webgl) canvas = makeCanvas();
+    const buffer = webgl ? null : new OffscreenCanvas(1, 1);
+    const context = webgl ? null : buffer.getContext('2d', { alpha: false });
     const scratch = new OffscreenCanvas(1, 1), scratchContext = scratch.getContext('2d');
-    const output = overlayOnly ? context : canvas.getContext('bitmaprenderer', { alpha: false });
-    if (!context || !scratchContext || !output) throw new Error('浏览器不支持直播合成画布');
+    const output = webgl ? null : canvas.getContext('bitmaprenderer', { alpha: false });
+    if (!scratchContext || (!webgl && (!context || !output))) {
+      webgl?.dispose();
+      throw new Error('浏览器不支持直播合成画布');
+    }
     const previous = [], assets = new Map(), sprites = new Map(), lifetimes = new Map(), forcedHidden = new Map();
-    let disposed = false, committed = false, presents = 0, comments = 0, skipped = 0, bytes = 0, layout = '', activeLoads = 0, dirtyRects = [];
+    let disposed = false, committed = false, presents = 0, comments = 0, skipped = 0, bytes = 0, layout = '', activeLoads = 0, videoMutedOpacity = false;
     let cacheHits = 0, cacheBuilds = 0, builds = 0, placeholders = 0, imageFailures = 0, staticFallbacks = 0, unsupported = 0, fixedOverflow = 0;
     let presentationRefresh = null;
     let styles = new WeakMap();
@@ -58,6 +68,12 @@
         setStyle(node, 'visibility', 'hidden');
       }
       setStyle(canvas, 'visibility', 'visible');
+      if (webgl) {
+        // Suppress Gecko's separate DComp hardware video overlay swapchain for WGC
+        // without changing visibility (which would halve 60 FPS live callbacks).
+        if (!videoMutedOpacity) { remember(video, 'opacity', '0'); videoMutedOpacity = true; }
+        setStyle(video, 'opacity', '0');
+      }
       if (canvas.parentElement !== host && host.isConnected !== false) host.appendChild(canvas);
     }
     const maskText = mask.textContent;
@@ -93,11 +109,23 @@
       return true;
     }
     function close(value) { try { value?.close?.(); } catch (_) {} }
-    function dropSprite(key) { const entry = sprites.get(key); if (!entry) return; bytes -= entry.bytes; entry.canvas.width = entry.canvas.height = 1; sprites.delete(key); }
+    function releaseFrame(frame) {
+      if (!frame) return;
+      if (webgl && frame.glTex) { webgl.deleteTexture(frame.glTex); frame.glTex = null; }
+      close(frame.image);
+    }
+    function dropSprite(key) {
+      const entry = sprites.get(key);
+      if (!entry) return;
+      bytes -= entry.bytes;
+      if (webgl && entry.glTex) webgl.deleteTexture(entry.glTex);
+      entry.canvas.width = entry.canvas.height = 1;
+      sprites.delete(key);
+    }
     function dropAsset(key) {
       const entry = assets.get(key); if (!entry) return;
       entry.cancelled = true; entry.controller?.abort(); close(entry.decoder);
-      for (const frame of entry.frames) close(frame.image);
+      for (const frame of entry.frames) releaseFrame(frame);
       bytes -= entry.bytes; assets.delete(key);
     }
     function space(required) {
@@ -154,7 +182,7 @@
             decoded = entry.frames.length > 0;
             if (entry.frames.length !== count && entry.animated) {
               // A partial cycle is misleading; keep a clearly reported static first frame.
-              while (entry.frames.length > 1) { const frame = entry.frames.pop(), size = (frame.image.displayWidth || frame.image.width || frame.image.codedWidth) * (frame.image.displayHeight || frame.image.height || frame.image.codedHeight) * 4; close(frame.image); entry.bytes -= size; bytes -= size; }
+              while (entry.frames.length > 1) { const frame = entry.frames.pop(), size = (frame.image.displayWidth || frame.image.width || frame.image.codedWidth) * (frame.image.displayHeight || frame.image.height || frame.image.codedHeight) * 4; releaseFrame(frame); entry.bytes -= size; bytes -= size; }
               entry.duration = entry.frames[0]?.duration || 0;
             }
           } catch (_) { if (entry.frames.length) { decoded = true; fallback(entry, 'animation-decode-failed'); } }
@@ -193,13 +221,13 @@
       }
       entry.seen = presents; return entry;
     }
-    function selectedImage(entry, elapsed) {
+    function selectedFrame(entry, elapsed) {
       if (!entry?.frames.length) return null;
-      if (entry.frames.length === 1 || entry.fallback) return entry.frames[0].image;
+      if (entry.frames.length === 1 || entry.fallback) return entry.frames[0];
       let time = Math.max(0, elapsed);
-      if (Number.isFinite(entry.repetitions) && entry.repetitions >= 0 && time >= entry.duration * (entry.repetitions + 1)) return entry.frames[entry.frames.length - 1].image;
+      if (Number.isFinite(entry.repetitions) && entry.repetitions >= 0 && time >= entry.duration * (entry.repetitions + 1)) return entry.frames[entry.frames.length - 1];
       time %= entry.duration;
-      return (entry.frames.find(frame => time < frame.start + frame.duration) || entry.frames[entry.frames.length - 1]).image;
+      return entry.frames.find(frame => time < frame.start + frame.duration) || entry.frames[entry.frames.length - 1];
     }
     function visible(node) {
       for (let current = node; current && current !== host; current = current.parentElement) {
@@ -212,7 +240,7 @@
     }
     function opacity(node, stop) { let alpha = 1; for (let current = node; current && current !== stop; current = current.parentElement) alpha *= Math.max(0, Math.min(1, Number(cssOf(current).opacity || 1))); return alpha; }
     function boxOf(node) { const b = node.getBoundingClientRect(); return { x: b.x ?? b.left, y: b.y ?? b.top, width: b.width, height: b.height }; }
-    function paintBox(node, known, dx, dy, hostBox) {
+    function paintBox(node, known, dx, dy, hostBox, dpr, canvasW, canvasH) {
       // A locally sent native comment can carry a solid CSS outline rather than
       // a text-data border flag. Sample its style; do not infer authorship or
       // invent a frame around ordinary comments. Unframed nodes need no new
@@ -225,16 +253,37 @@
       if (!outline && !widths.some(Boolean)) return;
       const rect = known || boxOf(node); if (!(rect.width > 0 && rect.height > 0)) return;
       const x = rect.x + dx - hostBox.x, y = rect.y + dy - hostBox.y, w = rect.width, h = rect.height;
-      context.globalAlpha = opacity(node, host);
+      const alpha = opacity(node, host);
       const [top, right, bottom, left] = widths;
       const strips = [[x, y, w, Math.min(top, h)], [x + Math.max(0, w - right), y + top, Math.min(right, w), Math.max(0, h - top - bottom)],
         [x, y + Math.max(0, h - bottom), w, Math.min(bottom, h)], [x, y + top, Math.min(left, w), Math.max(0, h - top - bottom)]];
+      const offset = outline ? (parseFloat(css.outlineOffset) || 0) : 0, inset = outline ? offset + outline / 2 : 0;
+      if (webgl) {
+        const ext = outline ? Math.max(2, inset + outline / 2 + 2) : 2;
+        const px = Math.max(0, Math.floor((x - ext) * dpr)), py = Math.max(0, Math.floor((y - ext) * dpr));
+        const pw = Math.min(canvasW, Math.ceil((x + w + ext) * dpr)) - px, ph = Math.min(canvasH, Math.ceil((y + h + ext) * dpr)) - py;
+        if (pw <= 0 || ph <= 0) return;
+        if (scratchContext.isContextLost?.()) throw new Error('文字画布上下文丢失');
+        scratch.width = pw; scratch.height = ph;
+        scratchContext.setTransform(1, 0, 0, 1, 0, 0); scratchContext.clearRect(0, 0, pw, ph);
+        scratchContext.setTransform(dpr, 0, 0, dpr, -px, -py); scratchContext.globalAlpha = 1;
+        strips.forEach((strip, index) => {
+          if (!widths[index] || !(strip[2] > 0 && strip[3] > 0)) return;
+          scratchContext.fillStyle = css['border' + sides[index] + 'Color'] || css.color || '#fff'; scratchContext.fillRect(...strip);
+        });
+        if (outline && w + inset * 2 > 0 && h + inset * 2 > 0) {
+          scratchContext.strokeStyle = css.outlineColor || css.color || '#fff'; scratchContext.lineWidth = outline;
+          scratchContext.strokeRect(x - inset, y - inset, w + inset * 2, h + inset * 2);
+        }
+        webgl.drawDynamicSource(scratch, px / dpr, py / dpr, pw / dpr, ph / dpr, alpha, pw, ph);
+        return;
+      }
+      context.globalAlpha = alpha;
       strips.forEach((strip, index) => {
         if (!widths[index] || !(strip[2] > 0 && strip[3] > 0)) return;
         context.fillStyle = css['border' + sides[index] + 'Color'] || css.color || '#fff'; context.fillRect(...strip);
       });
       if (outline) {
-        const offset = parseFloat(css.outlineOffset) || 0, inset = offset + outline / 2;
         if (w + inset * 2 <= 0 || h + inset * 2 <= 0) return;
         context.strokeStyle = css.outlineColor || css.color || '#fff'; context.lineWidth = outline;
         context.strokeRect(x - inset, y - inset, w + inset * 2, h + inset * 2);
@@ -261,7 +310,7 @@
       const width = Math.ceil((rect.width + pad * 2) * dpr), height = Math.ceil((Math.max(rect.height, parseFloat(css.lineHeight) || 0) + pad * 2) * dpr);
       const key = JSON.stringify([text, css.font, css.fontSize, css.fontWeight, css.fontFamily, css.fontStyle, css.color, css.textShadow, width, height, dpr]);
       let entry = sprites.get(key); if (entry) {
-        if (entry.target.isContextLost?.()) throw new Error('文字画布上下文丢失');
+        if (entry.target.isContextLost?.() || (webgl && scratchContext.isContextLost?.())) throw new Error('文字画布上下文丢失');
         entry.seen = presents; cacheHits++; return entry;
       }
       const size = width * height * 4;
@@ -278,8 +327,18 @@
         if (cached) tile.width = tile.height = 1;
         throw new Error('文字画布上下文丢失');
       }
-      entry = { canvas: tile, target, bytes: size, pad, seen: presents };
-      if (cached) { sprites.set(key, entry); bytes += size; cacheBuilds++; builds++; }
+      let glTex = null;
+      if (webgl && cached) {
+        glTex = webgl.uploadSprite(tile);
+        tile.width = tile.height = 1;
+      }
+      entry = { canvas: tile, target, glTex, w: width, h: height, bytes: size, pad, seen: presents };
+      if (cached && (!webgl || glTex)) { sprites.set(key, entry); bytes += size; cacheBuilds++; builds++; }
+      else if (webgl && cached && !glTex) {
+        scratch.width = width; scratch.height = height;
+        scratchContext.setTransform(dpr, 0, 0, dpr, 0, 0); scratchContext.globalAlpha = 1; scratchContext.clearRect(0, 0, width / dpr, height / dpr); paintText(scratchContext, text, css, pad, pad);
+        entry = { canvas: scratch, target: scratchContext, glTex: null, w: width, h: height, bytes: size, pad, seen: presents };
+      }
       return entry;
     }
     function layoutKey() { const b = boxOf(host), v = boxOf(video), l = boxOf(layer); return [b.x, b.y, b.width, b.height, v.x, v.y, v.width, v.height, l.x, l.y, l.width, l.height, root.devicePixelRatio || 1].join(','); }
@@ -299,31 +358,33 @@
     }
     function drawFrame(now, metadata = {}) {
       if (disposed) return false;
-      if (context.isContextLost?.()) throw new Error('直播合成画布上下文丢失');
+      if (webgl ? webgl.isContextLost() : context.isContextLost?.()) throw new Error('直播合成画布上下文丢失');
       styles = new WeakMap();
       const box = boxOf(host), source = boxOf(video), dmBox = boxOf(layer), dpr = Math.max(0.25, Math.min(4, root.devicePixelRatio || 1));
       if (!(box.width > 0 && box.height > 0 && video.videoWidth > 0 && video.videoHeight > 0)) return false;
       const width = Math.max(1, Math.round(box.width * dpr)), height = Math.max(1, Math.round(box.height * dpr));
-      const storeWidth = buffer ? buffer.width : canvas.width, storeHeight = buffer ? buffer.height : canvas.height;
+      const storeWidth = webgl ? canvas.width : buffer.width, storeHeight = webgl ? canvas.height : buffer.height;
       if (storeWidth !== width || storeHeight !== height) {
         if (buffer) { buffer.width = width; buffer.height = height; }
         canvas.width = width; canvas.height = height;
-        dirtyRects = [];
         for (const key of sprites.keys()) dropSprite(key);
       }
       builds = 0; comments = skipped = placeholders = unsupported = fixedOverflow = 0;
-      context.setTransform(dpr, 0, 0, dpr, 0, 0); context.globalAlpha = 1;
-      if (overlayOnly) {
-        for (const [rx, ry, rw, rh] of dirtyRects) context.clearRect(rx - 2, ry - 2, rw + 4, rh + 4);
-        dirtyRects = [];
+      const css = cssOf(video), fit = css.objectFit || 'contain'; let w = source.width, h = source.height;
+      if (fit !== 'fill') { let scale = (fit === 'cover' ? Math.max : Math.min)(w / video.videoWidth, h / video.videoHeight); if (fit === 'none') scale = 1; if (fit === 'scale-down') scale = Math.min(1, scale); w = video.videoWidth * scale; h = video.videoHeight * scale; }
+      const vx = source.x - box.x + (source.width - w) / 2, vy = source.y - box.y + (source.height - h) / 2;
+      if (webgl) {
+        webgl.beginFrame(width, height, box.width, box.height, dpr);
+        webgl.setScissor(source.x - box.x, source.y - box.y, source.width, source.height);
+        webgl.drawVideo(video, vx, vy, w, h);
+        webgl.setScissor(dmBox.x - box.x, dmBox.y - box.y, dmBox.width, dmBox.height);
       } else {
+        context.setTransform(dpr, 0, 0, dpr, 0, 0); context.globalAlpha = 1;
         context.fillStyle = '#000'; context.fillRect(0, 0, box.width, box.height);
-        const css = cssOf(video), fit = css.objectFit || 'contain'; let w = source.width, h = source.height;
-        if (fit !== 'fill') { let scale = (fit === 'cover' ? Math.max : Math.min)(w / video.videoWidth, h / video.videoHeight); if (fit === 'none') scale = 1; if (fit === 'scale-down') scale = Math.min(1, scale); w = video.videoWidth * scale; h = video.videoHeight * scale; }
         context.save(); context.beginPath(); context.rect(source.x - box.x, source.y - box.y, source.width, source.height); context.clip();
-        context.drawImage(video, source.x - box.x + (source.width - w) / 2, source.y - box.y + (source.height - h) / 2, w, h); context.restore();
+        context.drawImage(video, vx, vy, w, h); context.restore();
+        context.save(); context.beginPath(); context.rect(dmBox.x - box.x, dmBox.y - box.y, dmBox.width, dmBox.height); context.clip();
       }
-      context.save(); context.beginPath(); context.rect(dmBox.x - box.x, dmBox.y - box.y, dmBox.width, dmBox.height); context.clip();
       const mediaTime = Number.isFinite(metadata.mediaTime) ? metadata.mediaTime : Number(video.currentTime) || 0;
       const active = [...layer.querySelectorAll('.bili-danmaku-x-dm')].filter(item => {
         const on = item.classList.contains('bili-danmaku-x-show') && visible(item); if (!on) skipped++; return on;
@@ -348,9 +409,6 @@
           if (y === undefined) { fixedOverflow++; skipped++; continue; }
           life.y = y; life.height = itemBox.height; life.area = dmBox.height; occupied.push({ y, height: itemBox.height }); dy = dmBox.y + y - itemBox.y;
         }
-        if (overlayOnly) {
-          dirtyRects.push([itemBox.x + dx - box.x - 12, itemBox.y + dy - box.y - 12, itemBox.width + 24, itemBox.height + 24]);
-        }
         let painted = false;
         function walk(node) {
           if (node.nodeType === 3) {
@@ -358,35 +416,69 @@
             const parent = node.parentElement || item; if (!visible(parent)) return;
             const rect = textRect(node, parent), style = cssOf(parent), entry = textTile(text, style, rect, dpr); if (!entry) { unsupported++; return; }
             const tx = Math.round((rect.x + dx - box.x - entry.pad) * dpr) / dpr, ty = Math.round((rect.y + dy - box.y - entry.pad) * dpr) / dpr;
-            const tw = entry.canvas.width / dpr, th = entry.canvas.height / dpr;
-            if (overlayOnly) dirtyRects.push([tx - 2, ty - 2, tw + 4, th + 4]);
-            context.globalAlpha = opacity(parent, host);
-            context.drawImage(entry.canvas, tx, ty, tw, th); painted = true; return;
+            const tw = entry.w / dpr, th = entry.h / dpr, alpha = opacity(parent, host);
+            if (webgl) {
+              if (entry.glTex) webgl.drawTexture(entry.glTex, tx, ty, tw, th, alpha);
+              else webgl.drawDynamicSource(entry.canvas, tx, ty, tw, th, alpha, entry.w, entry.h);
+            } else {
+              context.globalAlpha = alpha;
+              context.drawImage(entry.canvas, tx, ty, tw, th);
+            }
+            painted = true; return;
           }
           if (node.nodeType !== 1 || !visible(node)) return;
           const tag = node.tagName?.toLowerCase();
           if (tag === 'img') {
             const rect = boxOf(node); if (!(rect.width > 0 && rect.height > 0)) return;
-            paintBox(node, rect, dx, dy, box);
-            const entry = assetFor(node), image = selectedImage(entry, mediaTime - start), x = Math.round((rect.x + dx - box.x) * dpr) / dpr, y = Math.round((rect.y + dy - box.y) * dpr) / dpr;
-            context.globalAlpha = opacity(node, host);
-            if (image) { try { context.drawImage(image, x, y, rect.width, rect.height); } catch (_) { if (entry) { entry.state = 'failed'; imageFailures++; fallbackReasons.add('image-draw-failed'); for (const frame of entry.frames) close(frame.image); bytes -= entry.bytes; entry.bytes = 0; entry.frames = []; } } }
-            if (!image || entry?.state === 'failed') {
+            paintBox(node, rect, dx, dy, box, dpr, width, height);
+            const entry = assetFor(node), frame = selectedFrame(entry, mediaTime - start), x = Math.round((rect.x + dx - box.x) * dpr) / dpr, y = Math.round((rect.y + dy - box.y) * dpr) / dpr;
+            const alpha = opacity(node, host);
+            let drewImage = false;
+            if (frame?.image) {
+              try {
+                if (webgl) {
+                  if (!frame.glTex) frame.glTex = webgl.uploadSprite(frame.image, true);
+                  webgl.drawTexture(frame.glTex, x, y, rect.width, rect.height, alpha);
+                } else {
+                  context.globalAlpha = alpha;
+                  context.drawImage(frame.image, x, y, rect.width, rect.height);
+                }
+                drewImage = true;
+              } catch (_) {
+                if (entry) { entry.state = 'failed'; imageFailures++; fallbackReasons.add('image-draw-failed'); for (const f of entry.frames) releaseFrame(f); bytes -= entry.bytes; entry.bytes = 0; entry.frames = []; }
+              }
+            }
+            if (!drewImage || entry?.state === 'failed') {
               const label = node.alt || '[表情]', size = Math.max(6, Math.min(parseFloat(cssOf(item).fontSize) || 25, rect.height, rect.width / Math.max(2, [...label].length)));
-              context.save(); context.beginPath(); context.rect(x, y, rect.width, rect.height); context.clip();
               const native = cssOf(item);
-              paintText(context, label, { font: '', color: '#fff', fontSize: size + 'px', lineHeight: size + 'px', fontFamily: native.fontFamily, fontWeight: native.fontWeight, textShadow: native.textShadow }, x, y); context.restore(); placeholders++;
+              const labelCss = { font: '', color: '#fff', fontSize: size + 'px', lineHeight: size + 'px', fontFamily: native.fontFamily, fontWeight: native.fontWeight, textShadow: native.textShadow };
+              if (webgl) {
+                const pw = Math.min(width, Math.max(1, Math.ceil(rect.width * dpr))), ph = Math.min(height, Math.max(1, Math.ceil(rect.height * dpr)));
+                if (scratchContext.isContextLost?.()) throw new Error('文字画布上下文丢失');
+                scratch.width = pw; scratch.height = ph;
+                scratchContext.setTransform(dpr, 0, 0, dpr, 0, 0); scratchContext.globalAlpha = 1;
+                scratchContext.clearRect(0, 0, pw / dpr, ph / dpr);
+                paintText(scratchContext, label, labelCss, 0, 0);
+                webgl.drawDynamicSource(scratch, x, y, pw / dpr, ph / dpr, alpha, pw, ph);
+              } else {
+                context.globalAlpha = alpha;
+                context.save(); context.beginPath(); context.rect(x, y, rect.width, rect.height); context.clip();
+                paintText(context, label, labelCss, x, y); context.restore();
+              }
+              placeholders++;
             }
             painted = true; return;
           }
           if (tag === 'svg' || tag === 'canvas' || tag === 'video') { unsupported++; return; }
-          paintBox(node, node === item ? itemBox : null, dx, dy, box);
+          paintBox(node, node === item ? itemBox : null, dx, dy, box, dpr, width, height);
           for (const child of node.childNodes || []) walk(child);
         }
         walk(item); if (painted) comments++;
       }
-      context.restore(); context.globalAlpha = 1;
-      if (!overlayOnly) {
+      if (webgl) {
+        webgl.clearScissor();
+      } else {
+        context.restore(); context.globalAlpha = 1;
         const bitmap = buffer.transferToImageBitmap(); try { output.transferFromImageBitmap(bitmap); } finally { close(bitmap); }
       }
       presents++; committed = true; ownMask(); layout = layoutKey();
@@ -401,11 +493,11 @@
       for (const [node, old] of forcedHidden) restoreHidden(node, old); forcedHidden.clear();
       for (const [node, name, value, priority, owned] of previous) if (node.style.getPropertyValue(name) === owned) { if (value) node.style.setProperty(name, value, priority); else node.style.removeProperty(name); }
       for (const key of sprites.keys()) dropSprite(key); for (const key of assets.keys()) dropAsset(key); lifetimes.clear();
+      webgl?.dispose();
       if (buffer) buffer.width = buffer.height = 1;
       scratch.width = scratch.height = canvas.width = canvas.height = 1;
-      dirtyRects = [];
     }
-    function status() { return { surface: overlayOnly ? 'danmaku-overlay' : 'single-canvas', overlayOnly, committed: committed && !disposed, presents, comments, skipped, placeholders, unsupported, fixedOverflow, imageFailures, staticFallbacks, fallbackReasons: [...fallbackReasons], assets: assets.size, pendingImages: [...assets.values()].filter(e => e.state === 'loading' || e.state === 'queued').length, animatedImages: [...assets.values()].filter(e => e.frames.length > 1 && !e.fallback).length, cacheBytes: bytes, textCache: sprites.size, cacheHits, cacheBuilds, presentationRefresh: { active: !!presentationRefresh, remaining: presentationRefresh?.remaining || 0 }, scope: 'ordinary-native-dom-and-emoticons', specialEffectsSupported: false, nativeSpecialEffects: 'suppressed-in-danmaku-layer' }; }
+    function status() { return { surface: webgl ? 'webgl-single-canvas' : 'single-canvas', backend: webgl ? 'webgl' : '2d-bitmaprenderer', committed: committed && !disposed, presents, comments, skipped, placeholders, unsupported, fixedOverflow, imageFailures, staticFallbacks, fallbackReasons: [...fallbackReasons], assets: assets.size, pendingImages: [...assets.values()].filter(e => e.state === 'loading' || e.state === 'queued').length, animatedImages: [...assets.values()].filter(e => e.frames.length > 1 && !e.fallback).length, cacheBytes: bytes, textCache: sprites.size, cacheHits, cacheBuilds, presentationRefresh: { active: !!presentationRefresh, remaining: presentationRefresh?.remaining || 0 }, scope: 'ordinary-native-dom-and-emoticons', specialEffectsSupported: false, nativeSpecialEffects: 'suppressed-in-danmaku-layer' }; }
     return { draw, restore, status, refreshPresentation, cancelPresentationRefresh, needsResize: () => !disposed && layoutKey() !== layout };
   }
   root.BFDLiveCompositor = { create };

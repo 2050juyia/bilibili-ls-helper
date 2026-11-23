@@ -451,26 +451,62 @@ test('failed or unpaintable live draws cancel a pending presentation refresh imm
   }
 });
 
-test('Firefox Gecko live compositor uses a transparent dirty-rect danmaku overlay without video readbacks', () => {
+test('Firefox Gecko live compositor uses WebGL single-canvas, mutes <video> opacity for WGC, and caches emoji textures', async () => {
   const h = harness();
   h.context.navigator = { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:160.0) Gecko/20100101 Firefox/160.0' };
+  const glOps = [], deleted = [];
+  let texSeq = 1;
+  h.context.BFDWebGLSurface = {
+    create(c) {
+      return {
+        isContextLost: () => false,
+        beginFrame(w, hgt, bw, bh, dpr) { c.width = w; c.height = hgt; glOps.push(['beginFrame', w, hgt]); },
+        setScissor: (...a) => glOps.push(['setScissor', ...a]),
+        clearScissor: () => glOps.push(['clearScissor']),
+        drawVideo: (...a) => glOps.push(['drawVideo', ...a]),
+        uploadSprite: src => { const id = 'live-tex-' + (texSeq++); glOps.push(['uploadSprite', id, src?.id || 'tile']); return id; },
+        drawTexture: (...a) => glOps.push(['drawTexture', ...a]),
+        drawDynamicSource: (...a) => glOps.push(['drawDynamicSource', ...a]),
+        deleteTexture: id => deleted.push(id),
+        dispose: () => glOps.push(['dispose'])
+      };
+    }
+  };
+  Object.assign(h.item.css, { outlineStyle: 'solid', outlineWidth: '2px', outlineColor: '#66ffff' });
+  h.image();
   vm.runInContext(source, h.context);
+
   const s = h.create();
-  assert.equal(s.status().overlayOnly, true);
-  assert.equal(s.status().surface, 'danmaku-overlay');
+  assert.equal(s.status().surface, 'webgl-single-canvas');
+  assert.equal(s.status().backend, 'webgl');
+  assert.equal(h.video.style.getPropertyValue('opacity'), '', 'must not touch <video> before first successful frame');
 
-  s.draw();
-  assert.equal(h.presents.length, 0, 'Firefox live overlay must not use transferToImageBitmap');
-  assert(!h.draws.some(d => d.method === 'drawImage' && d.args[0] === h.video), 'must never read back live <video>');
-  assert(!h.draws.some(d => d.index === 'canvas-2d' && d.method === 'fillRect'), 'overlay backdrop must stay transparent');
-  assert.equal(s.status().presents, 1);
-  assert.equal(s.status().comments, 1);
+  // Frame 1: video + self outline + text sprite + emoji placeholder
+  s.draw(0, { mediaTime: 10 });
+  assert.equal(h.presents.length, 0, 'WebGL live path must not call 2D transferToImageBitmap');
+  assert(!h.draws.some(d => d.method === 'drawImage' && d.args[0] === h.video));
+  assert(glOps.some(op => op[0] === 'drawVideo' && op[1] === h.video));
+  assert.equal(h.video.style.getPropertyValue('opacity'), '0');
+  assert.equal(h.video.style.getPropertyPriority('opacity'), 'important');
+  assert.equal(h.video.style.getPropertyValue('visibility'), '', 'must keep visibility untouched so 60fps live rVFC never halves');
+  assert.equal(s.status().placeholders, 1);
 
-  const before = h.draws.length;
+  await settle();
+  glOps.length = 0;
   h.item.box.x = 520; h.text.box.x = 520;
-  s.draw();
-  const frame2 = h.draws.slice(before).filter(d => d.index === 'canvas-2d');
-  assert(frame2.some(d => d.method === 'clearRect' && d.args[2] < 300), 'frame 2 clears bounded dirty rects only');
+  s.draw(1, { mediaTime: 11 });
+  assert.equal(s.status().placeholders, 0);
   assert.equal(s.status().cacheHits, 1);
+  assert(glOps.some(op => op[0] === 'uploadSprite' && op[2] === 'static'));
+  assert(glOps.some(op => op[0] === 'drawTexture'));
+
+  // Frame 3: emoji texture is reused without re-uploading
+  glOps.length = 0;
+  s.draw(2, { mediaTime: 12 });
+  assert.equal(glOps.filter(op => op[0] === 'uploadSprite').length, 0);
+
   s.restore();
+  assert.equal(h.video.style.getPropertyValue('opacity'), '');
+  assert.equal(deleted.length, 2, 'restore must delete both text sprite and emoji GL textures');
+  assert(glOps.some(op => op[0] === 'dispose'));
 });

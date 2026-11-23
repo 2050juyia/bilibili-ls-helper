@@ -485,20 +485,22 @@ class MarionetteClient {
     assert.equal(vod.legacyDisplay, 'none');
     assert.equal(vod.modernDisplay, 'none');
     assert.notEqual(vod.unrelatedDisplay, 'none');
-    assert.equal(vod.videoVisibility, 'visible', 'Firefox must keep <video> visible beneath opaque canvas');
+    assert.equal(vod.videoVisibility, 'hidden', 'Firefox WebGL single-canvas hides <video> to disable separate DComp video swapchain');
     assert.equal(vod.dmVisibility, 'hidden');
     assert.equal(vod.syncStatus.active, true, `VOD sync inactive: ${vod.syncStatus?.reason}`);
     assert(vod.syncStatus.frames >= 25, `Expected >=25 rVFC frames in Firefox, got ${vod.syncStatus.frames}`);
-    assert.equal(vod.syncStatus.composite.keepVideoVisible, true);
+    assert.equal(vod.syncStatus.composite.surface, 'webgl-single-canvas');
+    assert.equal(vod.syncStatus.composite.backend, 'webgl');
     assert.equal(vod.syncStatus.composite.committed, true);
     assert.equal(vod.syncStatus.recovery.attempts, 0);
     assert.equal(vod.diagnostics.length, 0);
     const vodShot = (await client.send('WebDriver:TakeScreenshot')).value;
     fs.writeFileSync(path.join(out, 'vod-composite-firefox.png'), Buffer.from(vodShot, 'base64'));
     report.checks.push({
-      name: 'VOD requestVideoFrameCallback stays continuous >2.6s with keepVideoVisible and indicator suppression',
+      name: 'VOD WebGL single-canvas stays continuous >2.6s with hidden <video> DComp swapchain and indicator suppression',
       frames: vod.syncStatus.frames,
       fps: vod.syncStatus.fps,
+      surface: vod.syncStatus.composite.surface,
       comments: vod.syncStatus.composite.comments
     });
 
@@ -538,6 +540,7 @@ class MarionetteClient {
           await new Promise(r => setTimeout(r, 1500));
           done({
             liveStatus: window.BFDLiveSync?.readStatus?.(),
+            videoOpacity: document.getElementById('live-video')?.style.getPropertyValue('opacity'),
             layerMasked: document.querySelector('.web-player-danmaku')?.hasAttribute('data-bfd-live-mask')
           });
         })();
@@ -547,10 +550,13 @@ class MarionetteClient {
     const live = liveResult.value;
     assert.equal(live.liveStatus?.active, true, `Live sync inactive: ${live.liveStatus?.reason}`);
     assert(live.liveStatus.frames >= 15, `Expected >=15 live rVFC frames, got ${live.liveStatus.frames}`);
+    assert.equal(live.liveStatus.composite.surface, 'webgl-single-canvas');
+    assert.equal(live.liveStatus.composite.backend, 'webgl');
     assert.equal(live.liveStatus.composite.committed, true);
     assert.equal(live.liveStatus.composite.comments >= 1, true);
     assert.equal(live.liveStatus.composite.assets, 1);
     assert.equal(live.liveStatus.composite.imageFailures, 0);
+    assert.equal(live.videoOpacity, '0', 'Firefox Live WebGL must mute <video> opacity to disable DComp swapchain');
     assert.equal(live.layerMasked, true);
     const liveShot = (await client.send('WebDriver:TakeScreenshot')).value;
     fs.writeFileSync(path.join(out, 'live-composite-firefox.png'), Buffer.from(liveShot, 'base64'));

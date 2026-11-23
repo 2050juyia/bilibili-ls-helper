@@ -5,36 +5,41 @@
     try { return /\bFirefox\//i.test(target?.navigator?.userAgent || ''); }
     catch { return false; }
   }
+  function makeCanvas() {
+    const node = document.createElement('canvas');
+    node.className = 'bfd-video-composite';
+    node.setAttribute('aria-hidden', 'true');
+    node.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;visibility:hidden;';
+    return node;
+  }
   function create(renderer, video, options = {}) {
-    const overlayOnly = typeof options?.overlayOnly === 'boolean' ? options.overlayOnly
-      : (typeof options?.keepVideoVisible === 'boolean' ? options.keepVideoVisible : isGecko(root));
-    const keepVideoVisible = overlayOnly;
     const container = renderer.container;
     const host = video.closest('.bpx-player-video-perch') || video.parentElement;
-    const canvas = document.createElement('canvas');
-    canvas.className = 'bfd-video-composite';
-    canvas.setAttribute('aria-hidden', 'true');
-    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;visibility:hidden;';
-    // In Gecko, drawImage(video) + OffscreenCanvas.transferToImageBitmap causes
-    // cross-process GPU->CPU readbacks and alpha:false triggers video occlusion
-    // throttling. Use a transparent danmaku-only 2D overlay over native <video>.
-    const buffer = overlayOnly ? null : new OffscreenCanvas(1, 1);
-    const context = overlayOnly ? canvas.getContext('2d', { alpha: true }) : buffer.getContext('2d', { alpha: false });
+    const wantWebGL = typeof options?.useWebGL === 'boolean' ? options.useWebGL : isGecko(root);
+    let canvas = makeCanvas();
+    // In Gecko/Firefox, 2D OffscreenCanvas video readbacks stall 4K playback while
+    // leaving <video> visible triggers dual DComp swapchain flips that break WGC.
+    // A single WebGL surface composites GPU video + cached text textures in <1ms.
+    const webgl = wantWebGL ? (root.BFDWebGLSurface?.create?.(canvas) || null) : null;
+    if (wantWebGL && !webgl) canvas = makeCanvas();
+    const buffer = webgl ? null : new OffscreenCanvas(1, 1);
+    const context = webgl ? null : buffer.getContext('2d', { alpha: false });
     // Reuse one transparent tile, rather than keeping a bitmap per comment.
     const textBuffer = new OffscreenCanvas(1, 1);
     const textContext = textBuffer.getContext('2d', { alpha: true });
-    const output = overlayOnly ? context : canvas.getContext('bitmaprenderer', { alpha: false });
-    if (!context || !textContext || !output) throw new Error('浏览器不支持合成画布');
-    const previous = ['visibility', 'pointer-events'].map(name => [container, name, container.style.getPropertyValue(name), container.style.getPropertyPriority(name)]);
-    if (!keepVideoVisible) {
-      previous.push([video, 'visibility', video.style.getPropertyValue('visibility'), video.style.getPropertyPriority('visibility')]);
+    const output = webgl ? null : canvas.getContext('bitmaprenderer', { alpha: false });
+    if (!textContext || (!webgl && (!context || !output))) {
+      webgl?.dispose();
+      throw new Error('浏览器不支持合成画布');
     }
+    const previous = ['visibility', 'pointer-events'].map(name => [container, name, container.style.getPropertyValue(name), container.style.getPropertyPriority(name)]);
+    previous.push([video, 'visibility', video.style.getPropertyValue('visibility'), video.style.getPropertyPriority('visibility')]);
     const position = getComputedStyle(host).position;
     if (position === 'static') {
       previous.push([host, 'position', host.style.getPropertyValue('position'), host.style.getPropertyPriority('position')]);
       host.style.setProperty('position', 'relative');
     }
-    let frames = 0, comments = 0, skipped = 0, committed = false, lastLayout = '', dirtyRects = [];
+    let frames = 0, comments = 0, skipped = 0, committed = false, lastLayout = '';
     function layoutKey() {
       const hostBox = host.getBoundingClientRect(), videoBox = video.getBoundingClientRect(), dmBox = container.getBoundingClientRect();
       return [hostBox.width, hostBox.height, videoBox.x - hostBox.x, videoBox.y - hostBox.y, videoBox.width, videoBox.height,
@@ -49,6 +54,7 @@
       const entry = sprites.get(cached);
       if (!entry) return;
       spriteBytes -= entry.bytes;
+      if (webgl && entry.glTex) webgl.deleteTexture(entry.glTex);
       entry.canvas.width = 1; entry.canvas.height = 1;
       sprites.delete(cached);
     }
@@ -60,12 +66,12 @@
         if (node.style.getPropertyValue(name) !== owned) continue;
         if (value) node.style.setProperty(name, value, priority); else node.style.removeProperty(name);
       }
+      clearSprites();
+      webgl?.dispose();
       // Release full-resolution backing stores after a mode/route change.
       if (buffer) { buffer.width = 1; buffer.height = 1; }
       canvas.width = 1; canvas.height = 1;
       textBuffer.width = 1; textBuffer.height = 1;
-      dirtyRects = [];
-      clearSprites();
     }
     host.appendChild(canvas);
     function ownFrames(css, data, width, height) {
@@ -126,7 +132,7 @@
       }
       return cached.bounds;
     }
-    function paintSprite(cached, item, left, top, dpr, width, height) {
+    function paintSprite(cached, item, left, top, dpr, width, height, alpha) {
       const b = textBounds(cached), pad = Math.ceil(cached.lineWidth + 2);
       const x = Math.floor((left + b.left - pad) * dpr), y = Math.floor((top + b.top - pad) * dpr);
       const w = Math.ceil((left + b.right + pad) * dpr) - x, h = Math.ceil((top + b.bottom + pad) * dpr) - y;
@@ -141,19 +147,29 @@
         target.setTransform(dpr, 0, 0, dpr, -x, -y);
         target.globalAlpha = 1;
         paintText(target, cached, item, left, top);
-        entry = { canvas: tile, target, bytes, x: x / dpr - left, y: y / dpr - top, lastSeen: frames };
+        if (target.isContextLost?.()) { tile.width = 1; tile.height = 1; throw new Error('文字画布上下文丢失'); }
+        let glTex = null;
+        if (webgl) {
+          glTex = webgl.uploadSprite(tile);
+          tile.width = 1; tile.height = 1;
+          if (!glTex) return false;
+        }
+        entry = { canvas: tile, target, glTex, w, h, bytes, x: x / dpr - left, y: y / dpr - top, lastSeen: frames };
         sprites.set(cached, entry); spriteBytes += bytes; spriteBuilds++; newSprites++;
       } else { spriteHits++; entry.lastSeen = frames; }
-      if (entry.target.isContextLost?.()) throw new Error('文字画布上下文丢失');
+      if (entry.target.isContextLost?.() || (webgl && textContext.isContextLost?.())) throw new Error('文字画布上下文丢失');
       // Opacity still applies once to the combined outline/fill/border. Only
       // the bitmap position changes, and presentation remains video-driven.
       // Align cached rasters to physical pixels instead of filtering text a
       // second time as it moves. Position rounding is at most half a pixel.
-      context.drawImage(entry.canvas, Math.round((left + entry.x) * dpr) / dpr,
-        Math.round((top + entry.y) * dpr) / dpr, entry.canvas.width / dpr, entry.canvas.height / dpr);
+      const dx = Math.round((left + entry.x) * dpr) / dpr;
+      const dy = Math.round((top + entry.y) * dpr) / dpr;
+      const dw = entry.w / dpr, dh = entry.h / dpr;
+      if (webgl) webgl.drawTexture(entry.glTex, dx, dy, dw, dh, alpha);
+      else context.drawImage(entry.canvas, dx, dy, dw, dh);
       return true;
     }
-    function paintGroup(cached, item, left, top, dpr, width, height) {
+    function paintGroup(cached, item, left, top, dpr, width, height, alpha) {
       if (textContext.isContextLost?.()) throw new Error('文字画布上下文丢失');
       textBounds(cached);
       const b = cached.bounds, pad = Math.ceil(cached.lineWidth + 2);
@@ -164,53 +180,58 @@
       const w = Math.min(width, Math.ceil((left + b.right + pad) * dpr)) - x;
       const h = Math.min(height, Math.ceil((top + b.bottom + pad) * dpr)) - y;
       if (w <= 0 || h <= 0) return;
+      if (webgl && (textBuffer.width > w * 2 || textBuffer.height > h * 2)) {
+        textBuffer.width = w; textBuffer.height = h;
+      }
       if (textBuffer.width < w) textBuffer.width = w;
       if (textBuffer.height < h) textBuffer.height = h;
       textContext.setTransform(1, 0, 0, 1, 0, 0);
-      textContext.clearRect(0, 0, w, h);
+      textContext.clearRect(0, 0, webgl ? Math.min(textBuffer.width, w + 2) : w, webgl ? Math.min(textBuffer.height, h + 2) : h);
       textContext.setTransform(dpr, 0, 0, dpr, -x, -y);
       textContext.globalAlpha = 1;
       paintText(textContext, cached, item, left, top);
       // CSS opacity applies to the whole element, including its outline. Apply
       // it once here, after the opaque outline and text have been combined.
-      context.drawImage(textBuffer, 0, 0, w, h, x / dpr, y / dpr, w / dpr, h / dpr);
+      if (webgl) webgl.drawDynamicSource(textBuffer, x / dpr, y / dpr, w / dpr, h / dpr, alpha, w, h);
+      else context.drawImage(textBuffer, 0, 0, w, h, x / dpr, y / dpr, w / dpr, h / dpr);
     }
     function draw() {
-      if (context.isContextLost?.()) throw new Error('合成画布上下文丢失');
+      if (webgl ? webgl.isContextLost() : context.isContextLost?.()) throw new Error('合成画布上下文丢失');
       const box = host.getBoundingClientRect(), source = video.getBoundingClientRect(), dmBox = container.getBoundingClientRect();
       if (!(box.width > 0 && box.height > 0 && video.videoWidth > 0 && video.videoHeight > 0)) return false;
       const dpr = root.devicePixelRatio || 1;
       const width = Math.max(1, Math.round(box.width * dpr)), height = Math.max(1, Math.round(box.height * dpr));
-      const storeWidth = buffer ? buffer.width : canvas.width, storeHeight = buffer ? buffer.height : canvas.height;
+      const storeWidth = webgl ? canvas.width : buffer.width, storeHeight = webgl ? canvas.height : buffer.height;
       if (storeWidth !== width || storeHeight !== height) {
         if (buffer) { buffer.width = width; buffer.height = height; }
         canvas.width = width; canvas.height = height;
         textBuffer.width = 1; textBuffer.height = 1;
-        dirtyRects = [];
         clearSprites();
       }
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      context.globalAlpha = 1;
-      if (overlayOnly) {
-        for (const [rx, ry, rw, rh] of dirtyRects) context.clearRect(rx - 2, ry - 2, rw + 4, rh + 4);
-        dirtyRects = [];
+      const style = getComputedStyle(video), fit = style.objectFit;
+      let w = source.width, h = source.height;
+      if (fit !== 'fill') {
+        let scale = (fit === 'cover' ? Math.max : Math.min)(w / video.videoWidth, h / video.videoHeight);
+        if (fit === 'none') scale = 1;
+        if (fit === 'scale-down') scale = Math.min(1, scale);
+        w = video.videoWidth * scale; h = video.videoHeight * scale;
+      }
+      const x = source.x - box.x + (source.width - w) / 2, y = source.y - box.y + (source.height - h) / 2;
+      if (webgl) {
+        webgl.beginFrame(width, height, box.width, box.height, dpr);
+        webgl.setScissor(source.x - box.x, source.y - box.y, source.width, source.height);
+        webgl.drawVideo(video, x, y, w, h);
+        webgl.setScissor(dmBox.x - box.x, dmBox.y - box.y, dmBox.width, dmBox.height);
       } else {
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        context.globalAlpha = 1;
         context.fillStyle = '#000'; context.fillRect(0, 0, box.width, box.height);
-        const style = getComputedStyle(video), fit = style.objectFit;
-        let w = source.width, h = source.height;
-        if (fit !== 'fill') {
-          let scale = (fit === 'cover' ? Math.max : Math.min)(w / video.videoWidth, h / video.videoHeight);
-          if (fit === 'none') scale = 1;
-          if (fit === 'scale-down') scale = Math.min(1, scale);
-          w = video.videoWidth * scale; h = video.videoHeight * scale;
-        }
-        const x = source.x - box.x + (source.width - w) / 2, y = source.y - box.y + (source.height - h) / 2;
         context.save(); context.beginPath(); context.rect(source.x - box.x, source.y - box.y, source.width, source.height); context.clip();
         context.drawImage(video, x, y, w, h); context.restore();
+        context.save(); context.beginPath(); context.rect(dmBox.x - box.x, dmBox.y - box.y, dmBox.width, dmBox.height); context.clip();
       }
       comments = 0; skipped = 0;
       newSprites = 0;
-      context.save(); context.beginPath(); context.rect(dmBox.x - box.x, dmBox.y - box.y, dmBox.width, dmBox.height); context.clip();
       const layout = `${box.width},${box.height},${dmBox.width},${dmBox.height},${dpr}`;
       const visibleItems = renderer.config?.setting?.visible === false || renderer.visible === false ? [] : renderer.manager.visualArray;
       const dense = visibleItems.length >= 32;
@@ -246,23 +267,20 @@
           const reverse = node.classList.contains('bili-danmaku-x-reverse') || node.classList.contains('bili-danmaku-x-bidirection-reverse');
           left += (reverse ? 1 : -1) * item.moveDistance * progress;
         }
-        if (overlayOnly) {
-          const b = textBounds(cached), pad = Math.ceil(cached.lineWidth + 3);
-          dirtyRects.push([left + b.left - pad, top + b.top - pad, b.right - b.left + pad * 2, b.bottom - b.top + pad * 2]);
-        }
-        context.globalAlpha = Math.max(0, Math.min(1, cached.opacity));
+        const alpha = Math.max(0, Math.min(1, cached.opacity));
+        if (!webgl) context.globalAlpha = alpha;
         // Even a few long, translucent comments can force expensive copies
         // from the shared mutable tile. Reuse those rasters at every density.
-        const cacheText = overlayOnly || dense || (context.globalAlpha < 1 && (cached.shadow || cached.frames.length));
-        if (cacheText && paintSprite(cached, item, left, top, dpr, width, height)) { /* reused complete text */ }
-        else if (context.globalAlpha < 1 && (cached.shadow || cached.frames.length)) paintGroup(cached, item, left, top, dpr, width, height);
+        const cacheText = Boolean(webgl) || dense || (alpha < 1 && (cached.shadow || cached.frames.length));
+        if (cacheText && paintSprite(cached, item, left, top, dpr, width, height, alpha)) { /* reused complete text */ }
+        else if (webgl || (alpha < 1 && (cached.shadow || cached.frames.length))) paintGroup(cached, item, left, top, dpr, width, height, alpha);
         else paintText(context, cached, item, left, top);
         comments++;
       }
-      context.restore();
-      // No visible DOM text moves. In Chromium, present the single off-screen bitmap;
-      // in Firefox, the direct transparent 2D overlay presents without touching <video>.
-      if (!overlayOnly) {
+      if (webgl) {
+        webgl.clearScissor();
+      } else {
+        context.restore();
         const bitmap = buffer.transferToImageBitmap();
         try { output.transferFromImageBitmap(bitmap); } finally { bitmap.close(); }
       }
@@ -270,8 +288,7 @@
       // Reassert ownership only after a complete image was presented. Stable
       // frames do not mutate the DOM or produce an additional presentation.
       if (host.isConnected && canvas.parentElement !== host) host.appendChild(canvas);
-      const hiddenNodes = keepVideoVisible ? [container] : [video, container];
-      for (const node of hiddenNodes) {
+      for (const node of [video, container]) {
         if (node.style.getPropertyValue('visibility') !== 'hidden' || node.style.getPropertyPriority('visibility') !== 'important') {
           node.style.setProperty('visibility', 'hidden', 'important');
         }
@@ -288,7 +305,7 @@
       return true;
     }
     return { draw, restore, host, needsResize: () => layoutKey() !== lastLayout,
-      status: () => ({ surface: overlayOnly ? 'danmaku-overlay' : 'single-canvas', overlayOnly, keepVideoVisible, presents: frames, comments, skipped, committed,
+      status: () => ({ surface: webgl ? 'webgl-single-canvas' : 'single-canvas', backend: webgl ? 'webgl' : '2d-bitmaprenderer', presents: frames, comments, skipped, committed,
         textCache: { entries: sprites.size, bytes: spriteBytes, hits: spriteHits, builds: spriteBuilds,
           maxBytes: maxSpriteBytes, maxEntries: maxSprites, maxEntryBytes } }) };
   }

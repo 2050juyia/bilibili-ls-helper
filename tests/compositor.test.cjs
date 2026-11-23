@@ -317,36 +317,69 @@ test('own border color changes including zero invalidate a retained sprite witho
   assert.equal(h.presents.length, 3);
 });
 
-test('Firefox Gecko uses a transparent dirty-rect danmaku overlay without reading back or occluding native video', () => {
+test('Firefox Gecko uses WebGL single-canvas composition and hides <video> to prevent dual DComp swapchain flips', () => {
   const h = harness();
   h.context.navigator = { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:160.0) Gecko/20100101 Firefox/160.0' };
+  const glOps = [], deleted = [];
+  let lost = false, texSeq = 1;
+  h.context.BFDWebGLSurface = {
+    create(c) {
+      return {
+        isContextLost: () => lost,
+        beginFrame(w, hgt, bw, bh, dpr) { c.width = w; c.height = hgt; glOps.push(['beginFrame', w, hgt, bw, bh, dpr]); },
+        setScissor: (...a) => glOps.push(['setScissor', ...a]),
+        clearScissor: () => glOps.push(['clearScissor']),
+        drawVideo: (...a) => glOps.push(['drawVideo', ...a]),
+        uploadSprite: tile => { const id = 'tex-' + (texSeq++); glOps.push(['uploadSprite', id, tile.width, tile.height]); return id; },
+        drawTexture: (...a) => glOps.push(['drawTexture', ...a]),
+        drawDynamicSource: (...a) => glOps.push(['drawDynamicSource', ...a]),
+        deleteTexture: id => deleted.push(id),
+        dispose: () => glOps.push(['dispose'])
+      };
+    }
+  };
   vm.runInContext(fs.readFileSync(require.resolve('../extension/compositor.js'), 'utf8'), h.context);
   h.video.style.setProperty('visibility', 'visible');
   const surface = h.context.BFDCompositor.create(h.renderer, h.video);
-  assert.equal(surface.status().overlayOnly, true);
-  assert.equal(surface.status().keepVideoVisible, true);
-  assert.equal(surface.status().surface, 'danmaku-overlay');
+  assert.equal(surface.status().surface, 'webgl-single-canvas');
+  assert.equal(surface.status().backend, 'webgl');
 
-  // Frame 1: builds cached sprite, never calls drawImage(video) or transferToImageBitmap
+  // Frame 1: draws video via WebGL, uploads cached text texture once, frees CPU tile immediately, hides <video> & container
   surface.draw();
-  assert.equal(h.presents.length, 0, 'Firefox overlay must not call transferToImageBitmap');
-  assert(!h.operations.some(op => op[0] === 'drawImage' && op[1] === h.video), 'Firefox overlay must never read back <video> pixels');
-  assert(!h.operations.some(op => op[0] === 'fillRect'), 'Firefox overlay must stay transparent rather than filling black');
-  assert.equal(surface.status().presents, 1);
+  assert.equal(h.presents.length, 0, 'WebGL path must not call 2D transferToImageBitmap');
+  assert(!h.operations.some(op => op[0] === 'drawImage' && op[1] === h.video), 'must never read back <video> onto 2D canvas');
+  assert.deepEqual(glOps.find(op => op[0] === 'drawVideo'), ['drawVideo', h.video, 0, 75, 800, 450]);
+  assert.equal(glOps.filter(op => op[0] === 'uploadSprite').length, 1);
   assert.equal(surface.status().textCache.builds, 1);
-  assert.equal(h.video.style.getPropertyValue('visibility'), 'visible');
+  assert.equal(h.buffers.at(-1).width, 1, 'uploaded sprite tile releases duplicate CPU RAM immediately');
+  assert.equal(h.video.style.getPropertyValue('visibility'), 'hidden');
   assert.equal(h.container.style.getPropertyValue('visibility'), 'hidden');
 
-  // Frame 2: clears only previous comment dirty rect and reuses cached sprite
-  const opsBefore = h.operations.length;
+  // Frame 2: reuses GPU texture with zero 2D text painting or texture re-upload
+  glOps.length = 0;
+  const textOpsBefore = h.operations.length;
   h.renderer.renderTime += 1 / 60;
   surface.draw();
-  const frame2Ops = h.operations.slice(opsBefore);
-  assert(frame2Ops.some(op => op[0] === 'clearRect' && op[3] < 400), 'must clear bounded dirty rect rather than full 4K frame');
-  assert(!frame2Ops.some(op => op[0] === 'fillText'), 'frame 2 must reuse cached sprite even below 32 comments');
+  assert.equal(h.operations.slice(textOpsBefore).filter(op => op[0] === 'fillText').length, 0);
+  assert.equal(glOps.filter(op => op[0] === 'uploadSprite').length, 0);
+  assert.equal(glOps.filter(op => op[0] === 'drawTexture').length, 1);
   assert.equal(surface.status().textCache.hits, 1);
 
+  // >16 new comments in one frame fall back cleanly to paintGroup + drawDynamicSource without dropping comments
+  dense(h, 20);
+  glOps.length = 0;
+  surface.draw();
+  assert.equal(surface.status().comments, 20);
+  assert.equal(glOps.filter(op => op[0] === 'uploadSprite').length, 16);
+  assert.equal(glOps.filter(op => op[0] === 'drawDynamicSource').length, 4);
+
+  // Context loss throws so video-sync can restore native playback
+  lost = true;
+  assert.throws(() => surface.draw(), /合成画布上下文丢失/);
+
   surface.restore();
+  assert(deleted.length >= 17, 'restore must free all cached GL sprite textures');
+  assert(glOps.some(op => op[0] === 'dispose'));
   assert.equal(h.video.style.getPropertyValue('visibility'), 'visible');
   assert.equal(h.container.style.getPropertyValue('visibility'), '');
 });

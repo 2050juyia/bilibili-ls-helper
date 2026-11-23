@@ -1,15 +1,15 @@
 {
   "version": "1.5.0",
-  "sourceCommit": "f61b4faaf56f578249154039bf09f51af0c85412",
+  "sourceCommit": "998d4827c9487c279806bcd39242acdeb5cc3412",
   "archive": "bilibili-danmaku-assistant-v1.5.0.zip",
   "path": "dist/bilibili-danmaku-assistant-v1.5.0.zip",
-  "bytes": 72626,
-  "sha256": "360f5ef51d170a9987f755aa98bdec011d95fe6546da033698c1a8927b828521",
+  "bytes": 76191,
+  "sha256": "160e5efe609f6e76552766d91d0477ca1d5a5aa8dcdd9811ee62af3b704c9f87",
   "firefoxArchive": "bilibili-danmaku-assistant-v1.5.0-firefox.zip",
   "firefoxPath": "dist/bilibili-danmaku-assistant-v1.5.0-firefox.zip",
-  "firefoxBytes": 68793,
-  "firefoxSha256": "c5fe3f7ffda038a5c3b850c3856cf263136b6a6ecc8f971c9dfe8cfa70004b5d",
+  "firefoxBytes": 72310,
+  "firefoxSha256": "300f140a6ed1dca6fb7df1f02ab465f695ef201cef7b4b7761488b988aeb5488",
   "firefoxAddonId": "bilibili-ls-helper@2050juyia.github.io",
-  "runtimeFiles": 18,
+  "runtimeFiles": 19,
   "packaging": "Dual-target build from committed HEAD: Chromium folder archive plus Firefox/AMO root-manifest archive."
 }

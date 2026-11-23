@@ -469,3 +469,35 @@ test('background tab suspension does not trigger false live stale recovery or ex
   assert(h.controller.status().active);
   assert.equal(h.controller.status().recovery.attempts, 1);
 });
+
+test('Firefox live mozPresentedFrames driver presents every new video frame without dropping 60fps streams or flipping on idle VSyncs', () => {
+  const h = harness();
+  h.original.video.mozPresentedFrames = 500;
+  h.original.video.currentTime = 10;
+  h.controller.update(rolling);
+  assert.equal(h.callbacks.size, 0, 'Gecko live path uses mozPresentedFrames rAF');
+  assert.equal(h.ui.size, 1);
+
+  h.uiFrame();
+  assert.equal(h.controller.status().frames, 1);
+  assert.equal(h.surfaces[0].presents, 1);
+
+  // 3 idle high-refresh VSync ticks -> zero surface draws
+  for (let i = 0; i < 3; i++) h.uiFrame();
+  assert.equal(h.controller.status().frames, 1);
+  assert.equal(h.surfaces[0].presents, 1);
+
+  // 30 new 60fps frames -> all 30 presented
+  for (let f = 1; f <= 30; f++) {
+    h.original.video.mozPresentedFrames = 500 + f;
+    h.original.video.currentTime = 10 + f / 60;
+    h.uiFrame();
+  }
+  assert.equal(h.controller.status().frames, 31);
+  assert.equal(h.surfaces[0].presents, 31);
+
+  h.original.video.paused = true;
+  h.event('pause');
+  assert.equal(h.ui.size, 0);
+  h.controller.destroy();
+});

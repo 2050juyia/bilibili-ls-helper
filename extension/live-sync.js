@@ -107,8 +107,9 @@
     }
     function cancelFrame(s) {
       if (s.pending) s.video.cancelVideoFrameCallback(s.pending);
+      if (s.mozPending) root.cancelAnimationFrame(s.mozPending);
       if (s.uiPending) root.cancelAnimationFrame(s.uiPending);
-      s.pending = s.uiPending = 0;
+      s.pending = s.mozPending = s.uiPending = 0;
       clearPresentationSamples(s); cancelPresentationRefresh(s);
     }
     function stop(message) {
@@ -173,10 +174,31 @@
         if (state === s && s.video.paused && !s.video.seeking && s.video.readyState >= 2) paint(s, now, { mediaTime: s.video.currentTime }, false);
       });
     }
-    function schedule(s) {
-      if (state !== s || s.pending || s.video.ended || s.video.seeking) return;
+    function schedule(s, resetPresented = false) {
+      if (resetPresented) s.lastPresented = null;
+      if (state !== s || s.pending || s.mozPending || s.video.ended || s.video.seeking) return;
       if (s.video.paused) { requestUi(s); return; }
-      s.pending = s.video.requestVideoFrameCallback((now, metadata) => { s.pending = 0; paint(s, now, metadata, true); });
+      if (s.useMozPresented && !s.video.srcObject && s.video.mozPresentedFrames > 0) {
+        const mozStep = now => {
+          s.mozPending = 0;
+          if (state !== s || s.video.paused || s.video.ended || s.video.seeking) return;
+          if (s.video.srcObject || !(s.video.mozPresentedFrames > 0)) { schedule(s); return; }
+          const presented = s.video.mozPresentedFrames;
+          if (s.lastPresented !== null && presented === s.lastPresented) {
+            s.mozPending = root.requestAnimationFrame(mozStep);
+            return;
+          }
+          s.lastPresented = presented;
+          paint(s, now, { mediaTime: s.video.currentTime, presentedFrames: presented }, true);
+        };
+        s.mozPending = root.requestAnimationFrame(mozStep);
+        return;
+      }
+      s.pending = s.video.requestVideoFrameCallback((now, metadata) => {
+        s.pending = 0;
+        if (s.useMozPresented && s.video.mozPresentedFrames > 0) s.lastPresented = s.video.mozPresentedFrames;
+        paint(s, now, metadata, true);
+      });
     }
     function paint(s, now, metadata, videoFrame) {
       if (state !== s) return;
@@ -223,10 +245,12 @@
       if (state) { if (state.video.paused && !state.surface.status().committed) requestUi(state); return; }
       if (same(unavailableTarget, found)) return;
       if (recovery && !recoveryAttach) { if (recovery.phase !== 'exhausted') armRecovery(recovery); return; }
-      if (typeof found.video.requestVideoFrameCallback !== 'function' || typeof found.video.cancelVideoFrameCallback !== 'function' || typeof root.BFDLiveCompositor?.create !== 'function') {
+      const useMozPresented = typeof found.video.mozPresentedFrames === 'number' && typeof root.requestAnimationFrame === 'function';
+      if ((!useMozPresented && (typeof found.video.requestVideoFrameCallback !== 'function' || typeof found.video.cancelVideoFrameCallback !== 'function')) || typeof root.BFDLiveCompositor?.create !== 'function') {
         clearRecovery('unavailable'); unavailableTarget = found; reason = '此播放器暂不支持直播视频合成'; outcome(failure('api'), 'unavailable'); return;
       }
-      const s = { ...found, surface: null, events: [], pending: 0, uiPending: 0, frames: 0, uiFrames: 0, presents: 0, fps: 0,
+      const s = { ...found, surface: null, events: [], useMozPresented, pending: 0, mozPending: 0, lastPresented: null,
+        uiPending: 0, frames: 0, uiFrames: 0, presents: 0, fps: 0,
         windowStart: null, windowFrames: 0, mediaTime: null, lastCallbackAt: Date.now(), inFrame: false, stableFrames: 0,
         cadence: null, presentationRates: { sampledFPS: 0, callbackFPS: 0, droppedFPS: 0 } };
       state = s;
@@ -236,11 +260,11 @@
         s.surface = root.BFDLiveCompositor.create({ video: s.video, host: s.host, layer: s.layer, mode: next.mode, position: next.position });
         if (recovery) recovery.phase = 'stabilizing';
         function listen(name, fn) { s.video.addEventListener(name, fn); s.events.push([name, fn]); }
-        listen('play', () => { cancelFrame(s); s.lastCallbackAt = Date.now(); schedule(s); });
+        listen('play', () => { cancelFrame(s); s.lastCallbackAt = Date.now(); schedule(s, true); });
         listen('pause', () => cancelFrame(s)); listen('ended', () => cancelFrame(s));
-        listen('seeking', () => { cancelFrame(s); s.stableFrames = 0; });
-        listen('seeked', () => { s.lastCallbackAt = Date.now(); schedule(s); });
-        listen('loadeddata', () => schedule(s)); listen('canplay', () => { if (!s.surface.status().committed) schedule(s); });
+        listen('seeking', () => { cancelFrame(s); s.lastPresented = null; s.stableFrames = 0; });
+        listen('seeked', () => { s.lastCallbackAt = Date.now(); schedule(s, true); });
+        listen('loadeddata', () => schedule(s, true)); listen('canplay', () => { if (!s.surface.status().committed) schedule(s, true); });
         listen('emptied', () => { clearRecovery('loading'); stop('等待直播视频重新加载'); });
         listen('timeupdate', () => {
           if (isTabHidden()) { s.lastCallbackAt = Date.now(); return; }
@@ -277,7 +301,7 @@
         clearPresentationSamples(state);
         state.lastCallbackAt = Date.now();
         state.windowStart = null;
-        schedule(state);
+        schedule(state, true);
       } else if (recovery && recovery.phase !== 'exhausted') {
         armRecovery(recovery);
       } else if (!hidden && desired.enabled) {

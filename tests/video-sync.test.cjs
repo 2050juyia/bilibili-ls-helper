@@ -511,3 +511,42 @@ test('background tab suspension does not trigger false stale recovery or burn bu
   assert.equal(controller.status().recovery.attempts, 1);
   controller.update({ enabled: false }, h.renderer);
 });
+
+test('Firefox mozPresentedFrames driver captures 100% of 60fps video frames while skipping non-video rAF ticks on high-Hz displays', () => {
+  const h = harness();
+  h.video.mozPresentedFrames = 100;
+  h.video.currentTime = 1;
+  h.controller.update(enabled, h.renderer);
+  assert.equal(h.callbacks.size, 0, 'Gecko path must use rAF + mozPresentedFrames instead of lossy chained rVFC');
+  assert.equal(h.uiCallbacks.size, 1);
+
+  // Initial attach commits immediately on first rAF tick
+  h.uiFrame();
+  assert.equal(h.controller.status().frames, 1);
+  assert.equal(h.controller.status().updates, 1);
+
+  // Simulate 165Hz monitor playing 24fps/60fps video: 4 idle rAF ticks where mozPresentedFrames stays 100 -> ZERO draws!
+  const writesAfterFirst = h.count();
+  for (let i = 0; i < 4; i++) h.uiFrame();
+  assert.equal(h.controller.status().frames, 1);
+  assert.equal(h.controller.status().updates, 1);
+  assert.equal(h.count(), writesAfterFirst, 'idle rAF ticks must not touch compositor or DOM');
+
+  // Next 60 presented video frames interspersed with idle rAF ticks -> all 60 presented, 0 skipped
+  for (let f = 1; f <= 60; f++) {
+    h.uiFrame(); // idle VSync
+    h.video.mozPresentedFrames = 100 + f;
+    h.video.currentTime = 1 + f / 60;
+    h.uiFrame(); // new video frame VSync
+  }
+  assert.equal(h.controller.status().frames, 61);
+  assert.equal(h.controller.status().updates, 61);
+
+  // Pause cancels the rAF loop cleanly
+  h.video.paused = true;
+  h.event('pause');
+  assert.equal(h.uiCallbacks.size, 0);
+
+  h.controller.update({ enabled: false }, h.renderer);
+  assert.equal(h.uiCallbacks.size, 0);
+});

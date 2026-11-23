@@ -77,6 +77,7 @@ function createMockGL(overrides = {}) {
     activeTexture() {},
     pixelStorei: (k, v) => calls.push(['pixelStorei', k, v]),
     texImage2D: (_t, _l, _if, _f, _ty, src) => calls.push(['texImage2D', src]),
+    texSubImage2D: (_t, _l, _x, _y, _f, _ty, src) => calls.push(['texSubImage2D', src]),
     blendFunc: (s, d) => calls.push(['blendFunc', s, d]),
     drawArrays: (mode, first, count) => calls.push(['drawArrays', mode, first, count]),
     isContextLost: () => lost,
@@ -122,10 +123,12 @@ test('BFDWebGLSurface initializes opaque WebGL2/WebGL1 context, flips Y scissor 
   surface.setScissor(10, 20, 400, 100);
   assert.deepEqual(mock.calls.find(c => c[0] === 'scissor'), ['scissor', 20, 840, 800, 200]);
 
-  const video = { id: 'hw-video' };
+  const video = { id: 'hw-video', videoWidth: 1920, videoHeight: 1080 };
   surface.drawVideo(video, 0, 0, 960, 540);
   assert(mock.calls.some(c => c[0] === 'texImage2D' && c[1] === video));
   assert(mock.calls.some(c => c[0] === 'uniform1f' && c[1] === 'uOpaque' && c[2] === 1));
+  surface.drawVideo(video, 0, 0, 960, 540);
+  assert(mock.calls.some(c => c[0] === 'texSubImage2D' && c[1] === video), 'unchanged video dimensions reuse texture via texSubImage2D');
 
   const tile = { width: 200, height: 50 };
   const tex = surface.uploadSprite(tile);

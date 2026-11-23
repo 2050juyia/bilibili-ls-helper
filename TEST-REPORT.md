@@ -4,10 +4,11 @@
 
 本轮基于已验收的 1.4.6 基线（`b2f2818`）完成桌面端 Mozilla Firefox（140+）适配与双端分流构建。当前扩展文件哈希见 `SOURCE-MANIFEST.json`。
 
-- `npm test` 通过 **259 项** 检查（0 失败、0 跳过、0 取消），新增覆盖：
+- `npm test` 通过 **261 项** 检查（0 失败、0 跳过、0 取消），新增覆盖：
   - Firefox `browser.*` WebExtensions 命名空间及 `browser.runtime.onMessage` Promise 异步响应（无 `chrome` 全局变量环境）；
   - 弹窗站点访问权限检查（`permissions.contains`）及用户手势同步请求（`permissions.request`）；
-  - Firefox Gecko 零回读 WebGL 单画布呈现器（`BFDWebGLSurface`，`webgl2`/`webgl` 回退、Y 轴裁剪框转换、共享动态画布子区域 UV 裁剪、精灵纹理上传/释放及上下文丢失恢复）；
+  - Firefox Gecko 零回读 WebGL 单画布呈现器（`BFDWebGLSurface`，`webgl2`/`webgl` 回退、`texSubImage2D` 同尺寸视频纹理复用、Y 轴裁剪框转换、共享动态画布子区域 UV 裁剪、精灵纹理上传/释放及上下文丢失恢复）；
+  - Firefox Gecko `mozPresentedFrames` 按帧同步驱动（消除链式 `requestVideoFrameCallback` 跨进程 IPC 在 50/60fps 下的跳帧限速，同时在高刷屏无新视频帧的 VSync 保持零绘制）；
   - Firefox Gecko 下点播 `BFDCompositor` 与直播 `BFDLiveCompositor` 采用 WebGL 单画布 GPU 合成（`surface: "webgl-single-canvas", backend: "webgl"`），消除 2D `OffscreenCanvas` 视频回读卡顿，并隐藏/透明化底层 `<video>` 以禁用独立 DirectComposition 视频叠加层交换链（避免 WGC 双交换链翻转干扰小黄鸭插帧）；
   - 点播与直播在后台标签页（`document.hidden === true`）持续推进音频 `timeupdate` 20 秒不误判 `stale`、零恢复预算消耗，切回前台自动接续；
   - Firefox 派生 `manifest.json` 满足 AMO 规范（无 `minimum_chrome_version`、含 `gecko.id`、`strict_min_version: "140.0"`、`data_collection_permissions.required: ["none"]` 且 `manifest.json` 位于 ZIP 根目录）。

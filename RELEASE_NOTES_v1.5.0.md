@@ -7,6 +7,7 @@
 - **Firefox（140+）完整适配：**
   - 统一支持 WebExtensions `browser.*` 与 `chrome.*` 命名空间及 `browser.runtime.onMessage` Promise 异步响应。
   - 针对 Firefox（Gecko）渲染与 Windows Graphics Capture（WGC）捕获机制，新增零回读 WebGL 单画布 GPU 合成后端（`webgl-surface.js`，`surface: "webgl-single-canvas"`）：通过 ANGLE Direct3D11 在单张 `{ alpha: false }` 画布内完成硬件 `<video>` 纹理与预乘 Alpha 弹幕/表情纹理合成（4K 分辨率下单帧合成耗时 `<1ms`），同时抑制 Firefox 独立 DirectComposition 视频叠加交换链（`dcomp-video-hw-overlay-win`）造成的双交换链错位翻转，同时解决「未开小黄鸭时原视频掉帧」与「开启小黄鸭无法成功插帧」两类冲突；Edge / Chrome 继续保持既有单画布路径不变。
+  - 针对 Firefox 链式 `requestVideoFrameCallback` 在 50/60fps 高帧率视频下因跨进程 IPC 时延跳帧（把 60fps 视频限制到约 36~42fps）的问题，点播与直播新增 `video.mozPresentedFrames` 硬件帧计数驱动：高刷屏下仅在实际视频帧更新时触发单画布合成（165Hz 下播放 25fps 视频精确呈现 25fps、播放 60fps 视频满帧呈现 60fps）。
   - 点播与直播同步控制器新增后台标签页挂起保护：切至后台期间（Firefox 默认挂起视频解码、仅保留音频推进）不再误触发帧回调停滞或耗尽 3 次恢复预算，切回前台后自动接续视频帧回调。
   - 弹窗新增当前B站域名访问权限自检与同步请求授权入口，并消除展开说明时的横向滚动条。
 - **共用播放指示图标屏蔽（自 1.4.6 合入）：**
@@ -23,7 +24,7 @@
 
 ## 验证范围
 
-- 259 项 Node.js 单元测试、12 个扩展脚本语法检查全部通过。
+- 261 项 Node.js 单元测试、12 个扩展脚本语法检查全部通过。
 - 本机 Mozilla Firefox 160.0.1 受控 Marionette 端到端验收通过 5 组检查（根目录 `-firefox.zip` 载入、弹窗存储保存、点播 WebGL 单画布连续视频帧回调合成、跨世界 Promise 消息往返、直播 WebGL 文字与表情 `ImageDecoder` 合成），并在真实 B 站视频页验证连续播放零掉帧。
 - 既有 Edge 播放指示图标与存储事件受控验收保持通过。
 

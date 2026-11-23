@@ -2,7 +2,7 @@
   "version": "1.5.0",
   "basePublicCommit": "f168acfc95374cfcdc9245ea3e3d214cb6c82cba",
   "baseLocalVerifiedCommit": "b2f28183ad43e777f4e56de4e99a28be1f1d224f",
-  "changeScope": "Firefox 140+ full WebExtensions/Gecko adaptation with zero-readback WebGL single-canvas GPU compositor, DComp dual-swapchain suppression for WGC, background-tab stall protection, dual-target Chromium & Firefox/AMO packaging, and Firefox documentation.",
+  "changeScope": "Firefox 140+ full WebExtensions/Gecko adaptation with zero-readback WebGL single-canvas GPU compositor, mozPresentedFrames 60fps zero-drop sync driver, DComp dual-swapchain suppression for WGC, background-tab stall protection, dual-target Chromium & Firefox/AMO packaging, and Firefox documentation.",
   "modifiedExtensionFiles": [
     "extension/bridge.js",
     "extension/compositor.js",
@@ -28,14 +28,14 @@
     "live-compositor.js": "745131b8f8a8e39cb76801cc1ac6588ab9ea9f8d3adfe931efec827faddd8b04",
     "live-periphery.js": "1e4a77902cbf73a51ad366ab733b29d2bbfb631b5087021b4f4b266d95bf1490",
     "live-quality.js": "002dcae191ef49049c649a280b50b6b71ddf9cb5644f501ed1a1d281e8ddc4f7",
-    "live-sync.js": "f70ec2973db91c0ffaca63b3bc219b7db9964127b21451ec169eb9291158d0c4",
+    "live-sync.js": "829139e879eeeadbd949befc626b668c29bf8bcf54ac53c71b3bc9ebe2ff1376",
     "manifest.json": "f4a24e832442d8d72466c5e53c97f4bf94c73990d660e0000f1c2c42f3441769",
     "playlist-indicator.js": "1473de8c7cd2121bba3f82031b6589827f61422b97cba2dc5669f18f17d32be0",
     "popup.css": "580394f17fe9ecfd24499a4c9e3e0317cf8c87708ce490202023333faa01a8c8",
     "popup.html": "08f09e72a20e6dd07652109de9d6c711dd2f22ebb1c0895edc43cef33ffc442b",
     "popup.js": "6db9764722a92118d06bb637fc4bb6b8fc716acf0c3a6340baea7464136dc432",
-    "video-sync.js": "222113ec5baf9a9865d3e1f38b98ae5745c863573f3a44ab1f6d390ea0aaaf9a",
-    "webgl-surface.js": "4b31c3ee8d5c8a99dc5d7cc219b38693dba645162075697b343a87df19177de7"
+    "video-sync.js": "5ea8ed7b8ebc0a02cb06175e220e96eb623af26faac448b02766756d051e3f37",
+    "webgl-surface.js": "0c99d35e6030f5e67d5a94f285b914fbc50e78c4395f18993f1564b45dff984b"
   },
   "releasePackaging": "Built from committed HEAD with scripts/package.py into both Chromium folder ZIP and Firefox/AMO root-manifest ZIP; release-manifest.json records commit and SHA256 checksums."
 }

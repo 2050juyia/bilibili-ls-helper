@@ -122,7 +122,7 @@
       gl.deleteProgram(program);
       return null;
     }
-    let cssW = 1, cssH = 1, currentDpr = 1;
+    let cssW = 1, cssH = 1, currentDpr = 1, videoTexW = 0, videoTexH = 0;
 
     function isContextLost() {
       return gl.isContextLost?.() === true;
@@ -166,7 +166,14 @@
       gl.bindTexture(gl.TEXTURE_2D, videoTex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+      const vw = video?.videoWidth || 0, vh = video?.videoHeight || 0;
+      if (vw > 0 && vh > 0 && vw === videoTexW && vh === videoTexH && typeof gl.texSubImage2D === 'function') {
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, video);
+      } else {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+        videoTexW = vw;
+        videoTexH = vh;
+      }
       gl.uniform4f(uRect, x, y, w, h);
       gl.uniform4f(uUvRect, 0, 0, 1, 1);
       gl.uniform1f(uAlpha, 1);

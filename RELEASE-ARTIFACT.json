@@ -1,15 +1,16 @@
 {
-  "version": "1.5.0",
-  "sourceCommit": "a09791c5a8c839aeb9ca1209ef2c20f7fd001cb3",
-  "archive": "bilibili-danmaku-assistant-v1.5.0.zip",
-  "path": "dist/bilibili-danmaku-assistant-v1.5.0.zip",
-  "bytes": 76921,
-  "sha256": "4468a6cdf8f0e7ee9b3818f4062ea3fcde43a7c9a8a9256850f390487a739c4c",
-  "firefoxArchive": "bilibili-danmaku-assistant-v1.5.0-firefox.zip",
-  "firefoxPath": "dist/bilibili-danmaku-assistant-v1.5.0-firefox.zip",
-  "firefoxBytes": 73040,
-  "firefoxSha256": "8a6e5360e97771cfb3abf7c809e004bfc83259b77b2969d2208a863eb7044dcb",
+  "version": "1.5.3",
+  "sourceCommit": "fecc798978e5a8dcc2b91e4e0c16781da2d1d2bc",
+  "archive": "bilibili-danmaku-assistant-v1.5.3.zip",
+  "path": "dist/bilibili-danmaku-assistant-v1.5.3.zip",
+  "bytes": 80249,
+  "sha256": "226cd689ff6281b73d733320022ddf159d8d457d9409eb18928241731c71b541",
+  "firefoxArchive": "bilibili-danmaku-assistant-v1.5.3-firefox.zip",
+  "firefoxPath": "dist/bilibili-danmaku-assistant-v1.5.3-firefox.zip",
+  "firefoxBytes": 76225,
+  "firefoxSha256": "eace2bb5c7296f3bcc324001bd763e470c4af693e585917ab3d17c035a1df92d",
   "firefoxAddonId": "bilibili-ls-helper@2050juyia.github.io",
   "runtimeFiles": 19,
-  "packaging": "Dual-target build from committed HEAD: Chromium folder archive plus Firefox/AMO root-manifest archive."
+  "packaging": "Dual-target build from committed HEAD: Chromium folder archive plus Firefox/AMO root-manifest archive.",
+  "release": "https://github.com/2050juyia/bilibili-ls-helper/releases/tag/v1.5.3"
 }

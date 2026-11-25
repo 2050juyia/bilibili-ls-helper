@@ -2,11 +2,11 @@
 
 适用于Windows电脑上的 **Mozilla Firefox 140 及更新版本**（含 Firefox 140 ESR 与正式版）。本插件需要配合 Lossless Scaling（小黄鸭）使用，本身不生成中间帧。
 
-当前版本为 **1.5.0**，支持B站普通视频、番剧与数字房间号直播。
+当前版本为 **1.5.3**，支持B站普通视频、番剧与数字房间号直播（全新安装默认启用「滚动弹幕」与「减少页面动画」）。
 
 ![Firefox安装与设置图解](assets/install-firefox.png)
 
-流程卡片与推荐设置面板为教学示意，对应插件 1.5.0 实际界面。不同 Firefox 版本菜单译名可能略有差异。[图源与复现说明](assets/SOURCES.md)
+流程卡片与推荐设置面板为教学示意，对应插件 1.5.3 实际界面。不同 Firefox 版本菜单译名可能略有差异。[图源与复现说明](assets/SOURCES.md)
 
 ## 1. 选择安装方式
 
@@ -23,11 +23,11 @@
 
 ### 方式 B（开发调试／上架审核前临时体验）：`about:debugging` 临时载入
 
-如果正在本地测试源码，或需要在商店签名包就绪前立即试用，可直接载入 Firefox 专用压缩包 `bilibili-danmaku-assistant-v1.5.0-firefox.zip`（**无需解压，注意不要误选 Chromium 版的普通 ZIP**）：
+如果正在本地测试源码，或需要在商店签名包就绪前立即试用，可直接载入 Firefox 专用压缩包 `bilibili-danmaku-assistant-v1.5.3-firefox.zip`（**无需解压，注意不要误选 Chromium 版的普通 ZIP**）：
 
 1. 在 Firefox 地址栏输入 `about:debugging#/runtime/this-firefox` 并按回车。
 2. 点击 **「临时载入附加组件…」**。
-3. 直接选择 `bilibili-danmaku-assistant-v1.5.0-firefox.zip`（或使用 `npm run build:firefox-dev` 生成目录下的 `manifest.json`）。
+3. 直接选择 `bilibili-danmaku-assistant-v1.5.3-firefox.zip`（或使用 `npm run build:firefox-dev` 生成目录下的 `manifest.json`）。
 
 > **提示：** 正式版 Firefox 的「临时载入」仅在当前浏览器会话内有效，**关闭 Firefox 后会自动移除**。日常长期使用请采用方式 A 的商店安装或已签名 `.xpi` 包。
 
@@ -41,10 +41,10 @@
 
 先打开一个B站视频、番剧或直播间页面。点击 Firefox 工具栏右上角的拼图形 **「扩展」** 按钮，找到「B站小黄鸭插帧助手」；可右键点击它并选择 **「固定到工具栏」**。
 
-在插件面板中依次操作：
+在插件面板中确认推荐设置（1.5.3 全新安装已默认开启）：
 
 1. 打开顶部总开关（显示「已开启」）。
-2. 「弹幕显示方式」选择 **滚动弹幕**。
+2. 「弹幕显示方式」确认选择 **滚动弹幕**。
 3. 开启 **减少页面动画**。
 4. 点击 **刷新视频，应用设置**，等待页面重新加载。
 
@@ -53,7 +53,7 @@
 ## 常见问题
 
 **提示“此附加组件似乎已损坏”或“找不到 manifest.json”？**
-多数是因为把面向 Edge / Chrome 的普通 `bilibili-danmaku-assistant-v1.5.0.zip`（内含一层子目录）当成 Firefox 包直接载入了。Firefox 临时载入必须选文件名带 `-firefox.zip` 的专用包，永久安装请选已签名的 `.xpi` 包或通过官方商店安装。
+多数是因为把面向 Edge / Chrome 的普通 `bilibili-danmaku-assistant-v1.5.3.zip`（内含一层子目录）当成 Firefox 包直接载入了。Firefox 临时载入必须选文件名带 `-firefox.zip` 的专用包，永久安装请选已签名的 `.xpi` 包或通过官方商店安装。
 
 **切换后台标签页后再切回来会影响同步吗？**
 Firefox 默认会在标签页切到后台数秒后挂起视频解码、仅保留声音播放。1.5.0 已针对后台标签页挂起做专门保护，不会在后台误判停滞或消耗恢复次数，切回前台后会自动随下一视频帧继续同步。

@@ -1,5 +1,11 @@
 # 公开版本来源
 
+## 1.5.3（2026-11-24）
+
+基于 1.5.0 提交 `9efe9829122ccc10eddd767d3ec75a880e2a7618`（其公开主干基线为 1.4.5 提交 `f168acfc95374cfcdc9245ea3e3d214cb6c82cba`）合入 1.5.1–1.5.3 的默认设置调整、点播 SPA 连播重绑与 Chromium 60fps 帧率修复、AI 智能防挡弹幕蒙版与底部阴影进度条抑制，以及直播跨房广播横幅与全屏／网页全屏外围隔离。
+
+相对于 1.4.5 公开基线，`extension/` 目录的修改与新增涉及 `bridge.js`、`compositor.js`、`core.js`、`hook.js`、`live-compositor.js`、`live-periphery.js`、`live-sync.js`、`manifest.json`、`playlist-indicator.js`、`popup.css`、`popup.html`、`popup.js`、`video-sync.js` 与 `webgl-surface.js`，全部 19 个扩展运行文件的当前 SHA256 记录于 `SOURCE-MANIFEST.json`。双端安装包由已提交 `HEAD` 通过 `scripts/package.py` 构建，产物的精确字节数与 SHA256 记录于 `RELEASE-ARTIFACT.json`。
+
 ## 1.5.0（2026-11-21）
 
 基于已验收的 1.4.6 提交 `b2f28183ad43e777f4e56de4e99a28be1f1d224f`（其上游公开基线为 1.4.5 提交 `f168acfc95374cfcdc9245ea3e3d214cb6c82cba`）增加桌面端 Mozilla Firefox（140+）适配与双端分流构建。

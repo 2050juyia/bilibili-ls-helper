@@ -7,8 +7,11 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 
 test('Chromium manifest stays warning-free while derived Firefox manifest satisfies AMO MV3 rules', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const chromium = JSON.parse(fs.readFileSync(path.join(root, 'extension', 'manifest.json'), 'utf8'));
   assert.equal(chromium.manifest_version, 3);
+  assert.equal(chromium.version, '1.5.3');
+  assert.equal(pkg.version, chromium.version);
   assert.equal(chromium.minimum_chrome_version, '111');
   assert.equal(chromium.browser_specific_settings, undefined);
 
@@ -51,4 +54,26 @@ test('Firefox unpacked build places manifest.json at the archive root with ident
   }
   fs.rmSync(outDir, { recursive: true, force: true });
   fs.rmSync(result.archive, { force: true });
+});
+
+test('package.py --working-tree builds release Chromium and Firefox ZIPs with working-tree v1.5.3 bytes', () => {
+  const outDir = path.join(root, 'work', 'firefox-working-tree-release-test');
+  fs.rmSync(outDir, { recursive: true, force: true });
+  const raw = execFileSync('python', [path.join(root, 'scripts', 'package.py'), '--working-tree', outDir], { encoding: 'utf8' });
+  const result = JSON.parse(raw.trim());
+  assert(fs.existsSync(result.archive));
+  assert(fs.existsSync(result.firefoxArchive));
+  const releaseMeta = JSON.parse(fs.readFileSync(path.join(outDir, 'release-manifest.json'), 'utf8'));
+  assert.equal(releaseMeta.version, '1.5.3');
+  assert.equal(releaseMeta.firefox.archive, 'bilibili-danmaku-assistant-v1.5.3-firefox.zip');
+  assert.equal(releaseMeta.firefox.addonId, 'bilibili-ls-helper@2050juyia.github.io');
+  assert.equal(releaseMeta.firefox.strictMinVersion, '140.0');
+  const crypto = require('node:crypto');
+  for (const rel of Object.keys(releaseMeta.firefox.files)) {
+    if (rel === 'manifest.json' || rel === 'LICENSE' || rel === 'THIRD_PARTY_NOTICES.md') continue;
+    const expected = crypto.createHash('sha256').update(fs.readFileSync(path.join(root, 'extension', rel))).digest('hex');
+    assert.equal(releaseMeta.firefox.files[rel], expected, `Firefox ZIP hash mismatch for ${rel}`);
+    assert.equal(releaseMeta.files[rel], expected, `Chromium ZIP hash mismatch for ${rel}`);
+  }
+  fs.rmSync(outDir, { recursive: true, force: true });
 });

@@ -7,8 +7,9 @@ test('video-sync retains downloaded XML/protobuf, realtime bytes and own scrolli
   assert.equal(core.rewriteXml(xml, options).data, xml);
   assert.equal(core.rewriteBroadcast(packet, options).data, packet);
   assert.equal(core.rewriteSelf(own, options).data, own);
-  assert.equal(core.normalizeSettings({}).motion, 'fixed');
-  assert.equal(core.normalizeSettings({ motion: 'unknown' }).motion, 'fixed');
+  assert.equal(core.normalizeSettings({}).motion, 'video-sync');
+  assert.equal(core.normalizeSettings({ motion: 'unknown' }).motion, 'video-sync');
+  assert.equal(core.normalizeSettings({ motion: 'fixed' }).motion, 'fixed');
 });
 function harness(options = {}) {
   const callbacks = new Map(), uiCallbacks = new Map(), events = new Map(), rootEvents = new Map(), timers = new Map(), properties = new Map(), classes = new Set();
@@ -549,4 +550,88 @@ test('Firefox mozPresentedFrames driver captures 100% of 60fps video frames whil
 
   h.controller.update({ enabled: false }, h.renderer);
   assert.equal(h.uiCallbacks.size, 0);
+});
+
+test('SPA router-related navigation resets readiness retry budget and recovers from mid-transition DanmakuX teardown', () => {
+  const h = harness();
+  const savedRenderer = h.renderer;
+  // Video 1 consumes 5 readiness retries before DanmakuX appears
+  h.replace(null);
+  h.controller.update(enabled, null);
+  for (let i = 0; i < 4; i++) h.timer();
+  h.replace(savedRenderer);
+  h.timer();
+  assert(h.controller.status().active);
+  h.frame(1);
+
+  // User clicks recommended video (SPA router-related): emptied fires, URL updates, DanmakuX is temporarily mid-reset
+  h.event('emptied');
+  assert(!h.controller.status().active);
+  h.context.location.href = 'https://www.bilibili.com/video/BV1Uthv6fEKw/?spm_id_from=333.788.recommend_more_video.-1&trackid=web_related_0.router-related';
+  const savedArray = savedRenderer.manager.visualArray;
+  savedRenderer.manager.visualArray = null;
+  h.controller.update(enabled, savedRenderer);
+  assert(!h.controller.status().active);
+  assert.equal(h.timers.size, 1, 'SPA route transition must get a fresh readiness retry budget instead of permanently poisoning failedRenderer');
+
+  // DanmakuX finishes initializing 150ms later on the reused renderer & container
+  h.timer();
+  assert(!h.controller.status().active);
+  savedRenderer.manager.visualArray = savedArray;
+  h.timer();
+  assert(h.controller.status().active, 'reused DanmakuX must attach cleanly once internals finish initializing');
+  h.frame(2);
+  assert.equal(h.controller.status().frames, 1);
+  h.controller.update({ enabled: false }, savedRenderer);
+});
+
+test('60fps VOD half-rate compositor stall triggers one bounded 2-frame presentation refresh per video element', () => {
+  const h = harness();
+  let refreshed = 0, totalFrames = 0;
+  h.video.currentSrc = 'blob:https://www.bilibili.com/portrait-60fps';
+  h.video.getVideoPlaybackQuality = () => ({ totalVideoFrames: totalFrames, droppedVideoFrames: 0 });
+  const origCreate = h.context.BFDCompositor.create;
+  h.context.BFDCompositor.create = function (...args) {
+    const s = origCreate.apply(this, args);
+    s.refreshPresentation = () => { refreshed++; return true; };
+    return s;
+  };
+  h.controller.update(enabled, h.renderer);
+  // Two 1-second windows where decoder advances 60 frames/sec while rVFC only fires 30 callbacks/sec (ratio 2.0 >= 1.75)
+  let media = 1;
+  h.frame(media);
+  for (let w = 0; w < 2; w++) {
+    for (let c = 0; c < 30; c++) {
+      totalFrames += 2;
+      media += 1 / 30;
+      h.frame(media);
+    }
+  }
+  assert.equal(refreshed, 1);
+  assert.equal(h.controller.status().presentationRecovery.attempted, true);
+  // Subsequent windows on the same <video> never re-trigger
+  for (let c = 0; c < 60; c++) { totalFrames += 2; media += 1 / 30; h.frame(media); }
+  assert.equal(refreshed, 1);
+  h.controller.update({ enabled: false }, h.renderer);
+});
+
+test('syncCSS suppresses AI smart danmaku mask wrapper and Mode-7 adv-dm wrapper via stylesheet !important without display:none', () => {
+  const h = harness();
+  h.controller.update(enabled, h.renderer);
+  assert.equal(h.styles.length, 1);
+  assert.equal(h.styles[0].isConnected, true);
+  assert(h.classes.has('bfd-video-sync'));
+  const css = h.styles[0].textContent;
+  assert(
+    css.includes('.bpx-player-dm-mask-wrap:has(.bfd-video-sync){visibility:hidden!important;-webkit-mask-image:none!important;mask-image:none!important}'),
+    'syncCSS must suppress .bpx-player-dm-mask-wrap SVG webmask repaints via stylesheet !important'
+  );
+  assert(
+    css.includes('.bpx-player-render-dm-wrap:has(.bfd-video-sync) .bpx-player-adv-dm-wrap,.bpx-player-render-dm-wrap:has(.bfd-video-sync) .bpx-player-adv-dm-wrap *{animation:none!important;transition:none!important;visibility:hidden!important}'),
+    'syncCSS must suppress Mode-7 .bpx-player-adv-dm-wrap animations/repaints while .bfd-video-sync is active'
+  );
+  assert(!/display\s*:\s*none/i.test(css), 'syncCSS must never use display:none so getBoundingClientRect stays non-zero');
+  h.controller.update({ enabled: false }, h.renderer);
+  assert.equal(h.styles[0].isConnected, false);
+  assert(!h.classes.has('bfd-video-sync'));
 });

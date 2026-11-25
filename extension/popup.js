@@ -64,8 +64,8 @@ async function init() {
     const stored = await Promise.resolve(ext.storage.local.get("bfdSettings"));
     storedSettings = stored?.bfdSettings || {};
     enabled.checked = storedSettings.enabled !== false;
-    hidePlaylistIndicator.checked = storedSettings.hidePlaylistIndicator === true;
-    motion.value = storedSettings.motion === "video-sync" ? "video-sync" : "fixed";
+    hidePlaylistIndicator.checked = storedSettings.hidePlaylistIndicator !== false;
+    motion.value = storedSettings.motion === "fixed" ? "fixed" : "video-sync";
     position.value = ["top", "bottom", "alternate"].includes(storedSettings.position) ? storedSettings.position : "top";
     loaded = true;
   } catch {

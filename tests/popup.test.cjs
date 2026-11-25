@@ -107,3 +107,11 @@ test('Firefox browser namespace checks host permission and requests it synchrono
   assert.deepEqual(reloads, [12]);
   assert(closed);
 });
+
+test('fresh install empty storage defaults popup controls to scrolling danmaku and page animation suppression ON', async () => {
+  const h = await harness({ settings: {} });
+  assert.equal(h.get('enabled').checked, true);
+  assert.equal(h.get('motion').value, 'video-sync');
+  assert.equal(h.get('hide-playlist-indicator').checked, true);
+  assert.equal(h.get('position-options').hidden, true);
+});

@@ -155,3 +155,118 @@ test('destroy removes every owned listener and observer and blocks pending setti
   h.api.set(true); h.event('fullscreenchange'); h.storage({ hidePlaylistIndicator: true }); assert(!hidden(h.header)); assert.equal(h.api.readStatus().destroyed, true);
   const delayed = await harness({ delayedStorage: true }); delayed.api.destroy(); delayed.resolveInitial(true); await Promise.resolve(); assert.equal(delayed.writes.length, 0);
 });
+test('VOD fullscreen isolates outer Bilibili header, sidebar and comments while restoring on exit and defaulting to enabled', async () => {
+  let nodes;
+  const inst = await harness({
+    href: 'https://www.bilibili.com/video/BV1Uthv6fEKw/?spm_id_from=333.788.recommend_more_video.-1',
+    fullscreen: false,
+    before({ body, Node, codex }) {
+      body.children.slice().forEach(n => n.remove());
+      const vodApp = new Node('div', '', 'app');
+      const mainHeader = new Node('div', 'bili-header', 'biliMainHeader');
+      const vdcon = new Node('div', 'video-container-v1', 'mirror-vdcon');
+      const left = new Node('div', 'left-container');
+      const playerWrap = new Node('div', '', 'playerWrap');
+      const biliPlayer = new Node('div', 'bpx-player-container', 'bilibili-player');
+      const v = new Node('video');
+      const viewbox = new Node('div', '', 'viewbox_report');
+      const comments = new Node('div', '', 'commentapp');
+      const right = new Node('div', 'right-container');
+      const vodFooter = new Node('footer', 'bili-footer');
+      biliPlayer.append(v); playerWrap.append(biliPlayer);
+      left.append(viewbox, playerWrap, comments);
+      vdcon.append(left, right);
+      vodApp.append(mainHeader, vdcon, vodFooter);
+      body.append(vodApp, codex);
+      nodes = { vodApp, mainHeader, vdcon, left, playerWrap, biliPlayer, v, viewbox, comments, right, vodFooter, codex };
+    }
+  });
+  // Not fullscreen yet -> nothing hidden
+  assert.equal(inst.api.readStatus().active, false);
+  assert(!hidden(nodes.right));
+  // Storage empty object {} defaults hidePlaylistIndicator to true
+  inst.storage({});
+  inst.enter(nodes.biliPlayer);
+  assert.equal(inst.api.readStatus().active, true);
+  for (const n of [nodes.mainHeader, nodes.right, nodes.viewbox, nodes.comments, nodes.vodFooter]) assert(hidden(n));
+  for (const n of [nodes.vodApp, nodes.vdcon, nodes.left, nodes.playerWrap, nodes.biliPlayer, nodes.v, nodes.codex]) assert(!hidden(n));
+  inst.exit();
+  for (const n of [nodes.mainHeader, nodes.right, nodes.viewbox, nodes.comments, nodes.vodFooter]) assert(!hidden(n));
+});
+
+test('real live-room-app fullscreen layout isolates background, effect, and popup roots while preserving #fullscreen-container and controls', async () => {
+  let nodes;
+  const inst = await harness({
+    href: 'https://live.bilibili.com/1716079620',
+    fullscreen: false,
+    before({ body, Node, codex }) {
+      body.children.slice().forEach(n => n.remove());
+      const liveApp = new Node('div', 'live-room-app');
+      const appContent = new Node('main', 'app-content');
+      const roomSsr = new Node('div', 'z-room-ssr', 'room-ssr-vm');
+      const roomBg = new Node('div', 'room-bg-ctnr', 'room-background-vm');
+      const bgManage = new Node('div', '', 'background-manage-vm');
+      const appBody = new Node('div', 'app-body');
+      const playerAndAside = new Node('section', 'player-and-aside-area');
+      const playerCtnr = new Node('div', 'player-ctnr', 'player-ctnr');
+      const headInfo = new Node('div', '', 'head-info-vm');
+      const fsContainer = new Node('div', '', 'fullscreen-container');
+      const playerSection = new Node('div', 'player-section');
+      const livePlayer = new Node('div', 'live-player-mounter', 'live-player');
+      const v = new Node('video');
+      const ctrlWrap = new Node('div', 'web-player-controller-wrap', 'web-player-controller-wrap-el');
+      const giftVm = new Node('div', '', 'gift-control-vm');
+      const asideArea = new Node('div', 'aside-area', 'aside-area-vm');
+      const sections = new Node('div', 'section-block', 'sections-vm');
+      const sidebar = new Node('div', '', 'sidebar-vm');
+      const linkFooter = new Node('footer', 'link-footer');
+      const haruna = new Node('div', '', 'my-dear-haruna-vm');
+      const enterFailure = new Node('div', 'enter-failure', 'enter-failure');
+      const iframePopup = new Node('div', '', 'iframe-popup-area');
+      const multiPlayer = new Node('multi-player', '', 'multi-player');
+      const playerAnim = new Node('player-animation', '', 'player-animation-vm');
+      const marsSwitch = new Node('mars-switch', '', 'mars-switch-vm');
+
+      livePlayer.append(v, ctrlWrap);
+      playerSection.append(livePlayer);
+      fsContainer.append(playerSection, giftVm);
+      playerCtnr.append(headInfo, fsContainer);
+      playerAndAside.append(playerCtnr, asideArea);
+      appBody.append(playerAndAside, sections, sidebar);
+      appContent.append(roomSsr, roomBg, bgManage, appBody, linkFooter);
+      liveApp.append(appContent, haruna, enterFailure, iframePopup, multiPlayer, playerAnim, marsSwitch);
+      body.append(liveApp, codex);
+
+      nodes = {
+        liveApp, appContent, roomSsr, roomBg, bgManage, appBody, playerAndAside, playerCtnr,
+        headInfo, fsContainer, playerSection, livePlayer, v, ctrlWrap, giftVm,
+        asideArea, sections, sidebar, linkFooter, haruna, enterFailure, iframePopup, multiPlayer, playerAnim, marsSwitch, codex
+      };
+    }
+  });
+
+  inst.enter(nodes.fsContainer);
+  assert.equal(inst.api.readStatus().active, true);
+  for (const isolated of [
+    nodes.roomSsr, nodes.roomBg, nodes.bgManage, nodes.headInfo, nodes.asideArea,
+    nodes.sections, nodes.sidebar, nodes.linkFooter, nodes.haruna,
+    nodes.enterFailure, nodes.iframePopup, nodes.multiPlayer, nodes.playerAnim, nodes.marsSwitch
+  ]) {
+    assert(hidden(isolated), `expected ${isolated.tagName}#${isolated.id} to be isolated in fullscreen`);
+  }
+  for (const preserved of [
+    nodes.liveApp, nodes.appContent, nodes.appBody, nodes.playerAndAside, nodes.playerCtnr,
+    nodes.fsContainer, nodes.playerSection, nodes.livePlayer, nodes.v, nodes.ctrlWrap, nodes.giftVm, nodes.codex
+  ]) {
+    assert(!hidden(preserved), `expected ${preserved.tagName}#${preserved.id} to remain visible in fullscreen`);
+  }
+
+  inst.exit();
+  for (const isolated of [
+    nodes.roomSsr, nodes.roomBg, nodes.bgManage, nodes.headInfo, nodes.asideArea,
+    nodes.sections, nodes.sidebar, nodes.linkFooter, nodes.haruna,
+    nodes.enterFailure, nodes.iframePopup, nodes.multiPlayer, nodes.playerAnim, nodes.marsSwitch
+  ]) {
+    assert(!hidden(isolated), `expected ${isolated.tagName}#${isolated.id} to restore after fullscreen exit`);
+  }
+});

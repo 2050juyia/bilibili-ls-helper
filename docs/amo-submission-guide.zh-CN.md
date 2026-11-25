@@ -14,7 +14,7 @@ python scripts/package.py
 
 在 `dist/` 目录下会生成两份不同结构的压缩包，**上传 Mozilla 后台时请务必选择带 `-firefox.zip` 后缀的专用包**：
 
-- **上传文件：** `dist/bilibili-danmaku-assistant-v1.5.0-firefox.zip`
+- **上传文件：** `dist/bilibili-danmaku-assistant-v1.5.3-firefox.zip`
 - **已内置合规项：**
   - `manifest.json` 位于压缩包根目录（无外层子文件夹）
   - 已剔除 Chromium 专属字段 `minimum_chrome_version`，零 Linter 警告
@@ -22,7 +22,7 @@ python scripts/package.py
   - 最低桌面版要求：`strict_min_version: "140.0"`
   - 隐私与数据收集声明：`data_collection_permissions: { "required": ["none"] }`（声明零数据收集与外传，免填隐私政策）
 - **是否需要额外上传“源代码包（Source Code）”？**
-  - **不需要**，在询问 *“Do you need to submit source code?”* 时选择 **No（否）**。因为本扩展全部 11 个 `.js` 文件均为未经 Webpack/Rollup 打包、未压缩混淆的原生可读 JavaScript 源码。
+  - **不需要**，在询问 *“Do you need to submit source code?”* 时选择 **No（否）**。因为本扩展全部 12 个 `.js` 文件均为未经 Webpack/Rollup 打包、未压缩混淆的原生可读 JavaScript 源码。
 
 ---
 
@@ -32,7 +32,7 @@ python scripts/package.py
 2. 点击 **Submit a New Add-on（提交新附加组件）**。
 3. 在 *How to Distribute this Version（如何分发此版本）* 页面：
    - 选择 **On this site（在此网站上分发）** —— 即公开上架 Firefox 商店，支持用户搜索、一键安装与自动更新。
-4. 在上传页面选择 `dist/bilibili-danmaku-assistant-v1.5.0-firefox.zip`，等待自动静态验证（Validation）变为绿色通过，点击 **Continue**。
+4. 在上传页面选择 `dist/bilibili-danmaku-assistant-v1.5.3-firefox.zip`，等待自动静态验证（Validation）变为绿色通过，点击 **Continue**。
 5. 当询问 *Do you need to submit source code?* 时，选择 **No** 并继续。
 
 ---
@@ -83,7 +83,7 @@ bilibili-ls-helper
   - 主页：`https://github.com/2050juyia/bilibili-ls-helper`
   - 问题反馈：`https://github.com/2050juyia/bilibili-ls-helper/issues`
 - **隐私政策（Privacy Policy）：** 留空不勾选（已在 `manifest.json` 声明 `required: ["none"]`，完全不收集外部数据）
-- **商店截图建议：** 可直接上传 `work/firefox-ui-1.5.0/popup-firefox.png` 或 `docs/assets/install-firefox.png`。
+- **商店截图建议：** 可直接上传 `work/firefox-ui-1.5.3/popup-firefox.png` 或 `docs/assets/install-firefox.png`。
 
 ---
 
@@ -94,8 +94,8 @@ AMO 人工抽检审核员通常使用英文界面且没有B站账号。在提交
 ```text
 Testing instructions (No account or login required):
 1. Open any public Bilibili video page, e.g. https://www.bilibili.com/video/BV1GJ411x7h7 or any live room at https://live.bilibili.com/ .
-2. Click the toolbar action icon ("B站小黄鸭插帧助手"), set the dropdown ("弹幕显示方式") to the second option ("滚动弹幕" / video-sync), toggle on the second switch ("减少页面动画"), and click the blue reload button.
-3. Play the video: ordinary danmaku comments are composited synchronously per video frame via HTMLVideoElement.requestVideoFrameCallback + OffscreenCanvas.
+2. Click the toolbar action icon ("B站小黄鸭插帧助手"): "滚动弹幕" (video-sync) and "减少页面动画" are enabled by default; you can toggle modes and click the blue reload button to apply.
+3. Play the video: ordinary danmaku comments are composited synchronously per video frame via WebGL single-canvas + video.mozPresentedFrames / requestVideoFrameCallback.
 
 Technical notes on manifest choices:
 - content_scripts with world: "MAIN" at document_start are used strictly on https://www.bilibili.com/* and https://live.bilibili.com/* to synchronize with Bilibili's page-world player instance (window.player / window.livePlayer) and rewrite danmaku display mode bytes locally when fixed-danmaku mode is selected.
@@ -107,7 +107,7 @@ Technical notes on manifest choices:
 ## 五、过审后导出签名 `.xpi` 与回填链接
 
 1. **下载 `.xpi` 放入 GitHub Releases：**
-   - 登录 AMO 开发者后台 → 进入该扩展的 **Manage Status & Versions（管理状态与版本）** → 点开 `1.5.0` 版本详情页。
-   - 点击文件链接下载签好名的 `.xpi` 文件（可重命名为 `bilibili-danmaku-assistant-v1.5.0-firefox.xpi`），作为附件一并上传至 GitHub Releases，方便不便访问商店的用户离线永久安装。
+   - 登录 AMO 开发者后台 → 进入该扩展的 **Manage Status & Versions（管理状态与版本）** → 点开 `1.5.3` 版本详情页。
+   - 点击文件链接下载签好名的 `.xpi` 文件（可重命名为 `bilibili-danmaku-assistant-v1.5.3-firefox.xpi`），作为附件一并上传至 GitHub Releases，方便不便访问商店的用户离线永久安装。
 2. **回填商店链接（可选）：**
    - 公开审核通过后，可将商店正式 URL 补充到 `README.md` 与 `docs/install-firefox.zh-CN.md` 的「Firefox 官方商店」条目中。

@@ -30,7 +30,7 @@ REPO = "https://github.com/2050juyia/bilibili-ls-helper"
 RELEASES = REPO + "/releases/latest"
 VERSION = json.loads((ROOT / "extension" / "manifest.json").read_text(encoding="utf-8"))["version"]
 EDITION = 3
-DATE = "2026-11-21"
+DATE = "2026-11-24"
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--font", default="C:/Windows/Fonts/msyh.ttc")
@@ -118,7 +118,7 @@ def popup_diagram():
     d.line((728, 196, 736, 204, 744, 196), fill="#222c3c", width=3)
     d.line((40, 276, 764, 276), fill="#e9ecf1", width=2)
     t(20, 160, "减少页面动画")
-    t(20, 184, "播放图标、顶部与直播外围 · 立即生效", 11, "#667184")
+    t(20, 184, "播放图标、顶部与全屏外围 · 立即生效", 11, "#667184")
     toggle(345, 161)
     d.polygon([(40, 438), (40, 451), (50, 445)], fill="#667184")
     t(29, 219, "使用说明", 11, "#667184")
@@ -144,9 +144,9 @@ def render_settings_and_footer(d, im, icon, y, menu_tip, source_note):
     paragraph(d, 86, cy + 140, menu_tip, 1268, 30)
     y += 349
 
-    cy = card(d, y, 697, 5, "先打开 B站视频或直播页，再应用设置")
-    states = [("顶部开关", "保持「已开启」"), ("弹幕显示方式", "手动选择「滚动弹幕」"),
-              ("减少页面动画", "开启"), ("最后点击", "刷新视频，应用设置")]
+    cy = card(d, y, 697, 5, "先打开 B站视频或直播页，再确认并应用设置")
+    states = [("顶部开关", "保持「已开启」"), ("弹幕显示方式", "确认「滚动弹幕」（默认）"),
+              ("减少页面动画", "保持开启（默认）"), ("最后点击", "刷新视频，应用设置")]
     for i, (label, value) in enumerate(states):
         yy = cy + 42 + i * 108
         badge(d, 92, yy, str(i + 1), radius=20, size=23)
@@ -157,7 +157,7 @@ def render_settings_and_footer(d, im, icon, y, menu_tip, source_note):
     panel = panel.resize((455, round(panel.height * 455 / panel.width)), Image.Resampling.LANCZOS)
     im.paste(panel, (856, cy + 54))
     d.rounded_rectangle((853, cy + 51, 1315, cy + 58 + panel.height), radius=8, outline=LINE, width=3)
-    paragraph(d, 86, cy + 500, "第一次安装需要手动选滚动模式。若刷新按钮灰色，先切到B站普通视频、番剧或直播页。", 1268, 27, SUB, gap=10)
+    paragraph(d, 86, cy + 500, "全新安装已默认开启滚动弹幕与减少页面动画。若刷新按钮灰色，先切到B站视频、番剧或直播页。", 1268, 27, SUB, gap=10)
     y += 721
 
     cy = card(d, y, 352, 6, "另行运行小黄鸭，并启动插帧")

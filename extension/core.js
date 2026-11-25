@@ -2,15 +2,17 @@
 (function (root) {
   "use strict";
   const MAX_BYTES = 16 * 1024 * 1024;
-  const defaults = Object.freeze({ enabled: true, position: "top", motion: "fixed" });
+  const defaults = Object.freeze({ enabled: true, position: "top", motion: "video-sync", hidePlaylistIndicator: true });
   const rolling = new Set([1, 2, 3, 6]);
 
   function normalizeSettings(value) {
     return {
       enabled: typeof value?.enabled === "boolean" ? value.enabled : defaults.enabled,
-      motion: value?.motion === "video-sync" ? "video-sync" : "fixed",
+      motion: value?.motion === "fixed" ? "fixed" : defaults.motion,
       position: ["top", "bottom", "alternate"].includes(value?.position)
-        ? value.position : defaults.position
+        ? value.position : defaults.position,
+      hidePlaylistIndicator: typeof value?.hidePlaylistIndicator === "boolean"
+        ? value.hidePlaylistIndicator : defaults.hidePlaylistIndicator
     };
   }
   function pageKey(url) {

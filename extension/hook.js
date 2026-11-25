@@ -128,18 +128,33 @@
       sendStatus();
     } else if (event.data.type === "get-status") sendStatus();
   });
-  // Attach at media readiness or before the player's send interaction. No DOM
-  // observer, animation loop or permanent polling is needed for late/SPA players.
+  // Attach at media readiness, SPA route transitions, or before send interaction.
   if (typeof document !== 'undefined' && document.addEventListener) {
     const interaction = event => {
-      if (event.type === 'keydown' ? event.key === 'Enter' : event.target?.closest?.('.bpx-player-container')) {
+      if (event.type === 'fullscreenchange' || (event.type === 'keydown' ? event.key === 'Enter' : event.target?.closest?.('.bpx-player-container'))) {
         prepareSelfRenderer(); videoSync?.refresh();
       }
     };
-    for (const name of ['pointerdown', 'click', 'keydown', 'input', 'change']) document.addEventListener(name, interaction, true);
-    for (const name of ['loadeddata', 'canplay', 'play', 'emptied']) document.addEventListener(name, prepareSelfRenderer, true);
+    for (const name of ['pointerdown', 'click', 'keydown', 'input', 'change', 'fullscreenchange']) document.addEventListener(name, interaction, true);
+    for (const name of ['loadedmetadata', 'loadeddata', 'canplay', 'play', 'playing', 'seeked', 'durationchange']) document.addEventListener(name, prepareSelfRenderer, true);
+    // Defer emptied recheck past target-phase teardown so a new attach is not stopped immediately.
+    document.addEventListener('emptied', () => { Promise.resolve().then(prepareSelfRenderer); }, true);
     document.addEventListener('DOMContentLoaded', prepareSelfRenderer, { once: true });
     window.addEventListener('load', prepareSelfRenderer, { once: true });
+    window.addEventListener('popstate', () => { resetForRoute(); prepareSelfRenderer(); });
+  }
+  if (typeof history === 'object' && history) {
+    for (const method of ['pushState', 'replaceState']) {
+      const nativeHistory = history[method];
+      if (typeof nativeHistory !== 'function') continue;
+      try {
+        history[method] = function (...args) {
+          const result = Reflect.apply(nativeHistory, this, args);
+          Promise.resolve().then(() => { resetForRoute(); prepareSelfRenderer(); });
+          return result;
+        };
+      } catch { /* Preserve native history if non-writable. */ }
+    }
   }
 
   const nativeFetch = window.fetch;

@@ -3,9 +3,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const core = require("../extension/core.js");
 const f = require("./fixtures.cjs");
+const fixed = { enabled: true, motion: "fixed", position: "top" };
 test("all four ordinary scrolling types become native top fixed", () => {
   const input = f.packet([1, 2, 3, 6, 4, 5, 7, 8, 9]);
-  const result = core.rewriteProtobuf(input);
+  const result = core.rewriteProtobuf(input, fixed);
   assert.equal(result.error, null);
   assert.equal(result.converted, 4);
   assert.equal(result.total, 9);
@@ -16,16 +17,16 @@ test("all four ordinary scrolling types become native top fixed", () => {
 });
 test("bottom and deterministic alternate modes", () => {
   const input = f.packet([1, 5, 6, 4, 2, 3]);
-  assert.deepEqual(f.modesFrom(core.rewriteProtobuf(input, { position: "bottom" }).data), [4, 5, 4, 4, 4, 4]);
-  assert.deepEqual(f.modesFrom(core.rewriteProtobuf(input, { position: "alternate" }).data), [5, 5, 4, 4, 5, 4]);
+  assert.deepEqual(f.modesFrom(core.rewriteProtobuf(input, { motion: "fixed", position: "bottom" }).data), [4, 5, 4, 4, 4, 4]);
+  assert.deepEqual(f.modesFrom(core.rewriteProtobuf(input, { motion: "fixed", position: "alternate" }).data), [5, 5, 4, 4, 5, 4]);
 });
 test("disabled conversion returns original object untouched", () => {
   const input = f.packet([1]);
-  assert.equal(core.rewriteProtobuf(input, { enabled: false }).data, input);
-  assert.equal(core.rewriteXml('<i><d p="0,1,25,0,0,0,u,1">Hi</d></i>', { enabled: false }).converted, 0);
+  assert.equal(core.rewriteProtobuf(input, { enabled: false, motion: "fixed" }).data, input);
+  assert.equal(core.rewriteXml('<i><d p="0,1,25,0,0,0,u,1">Hi</d></i>', { enabled: false, motion: "fixed" }).converted, 0);
 });
 test("ArrayBuffer API returns ArrayBuffer", () => {
-  const result = core.rewriteProtobuf(f.packet([1]).buffer);
+  const result = core.rewriteProtobuf(f.packet([1]).buffer, fixed);
   assert.ok(result.data instanceof ArrayBuffer);
   assert.deepEqual(f.modesFrom(new Uint8Array(result.data)), [5]);
 });
@@ -37,7 +38,7 @@ test("64-bit IDs and unknown fields are preserved exactly", () => {
     ...f.sized(99, [24, 1])
   ];
   const input = new Uint8Array(f.sized(1, f.element(6, "保留文字", unknown)));
-  const result = core.rewriteProtobuf(input);
+  const result = core.rewriteProtobuf(input, fixed);
   assert.equal(result.error, null);
   assert.equal(result.converted, 1);
   assert.equal([...input.keys()].filter(i => input[i] !== result.data[i]).length, 1);
@@ -45,7 +46,7 @@ test("64-bit IDs and unknown fields are preserved exactly", () => {
 test("unknown top-level metadata is not mistaken for a danmaku", () => {
   const metadata = f.sized(3, f.element(1, "AI metadata"));
   const input = f.packet([1], metadata);
-  const result = core.rewriteProtobuf(input);
+  const result = core.rewriteProtobuf(input, fixed);
   assert.equal(result.converted, 1);
   assert.deepEqual(result.data.slice(-metadata.length), input.slice(-metadata.length));
 });
@@ -57,7 +58,7 @@ test("truncated and unsupported packets fail open with no partial edit", () => {
   ];
   for (const bytes of badInputs) {
     const input = new Uint8Array(bytes);
-    const result = core.rewriteProtobuf(input);
+    const result = core.rewriteProtobuf(input, fixed);
     assert.ok(result.error, JSON.stringify(bytes));
     assert.equal(result.data, input);
     assert.equal(result.converted, 0);
@@ -65,26 +66,26 @@ test("truncated and unsupported packets fail open with no partial edit", () => {
 });
 test("protobuf singular-field last-one-wins semantics", () => {
   const input = new Uint8Array(f.sized(1, [...f.number(3, 1), ...f.number(3, 4)]));
-  const result = core.rewriteProtobuf(input);
+  const result = core.rewriteProtobuf(input, fixed);
   assert.equal(result.converted, 0);
   assert.equal(result.data, input);
 });
 test("XML changes only p mode, preserving text, style and special comments", () => {
   const xml = '<i><d p="2.1,1,25,16777215,0,0,u,123">中文 &amp; &lt;b&gt;</d><d id="x" p="2.2,6,18,0,0,0,u,124">反向</d><d p="2.3,7,25,0,0,0,u,125">["special"]</d></i>';
-  const result = core.rewriteXml(xml, { position: "bottom" });
+  const result = core.rewriteXml(xml, { motion: "fixed", position: "bottom" });
   assert.equal(result.converted, 2);
   assert.equal(result.total, 3);
   assert.equal(result.data, xml.replace("2.1,1,", "2.1,4,").replace("2.2,6,", "2.2,4,"));
   const quoted = "<i><d p='0,1,25,0,0,0,u,1'>single</d></i>";
-  assert.equal(core.rewriteXml(quoted).data, quoted.replace("0,1,", "0,5,"));
+  assert.equal(core.rewriteXml(quoted, fixed).data, quoted.replace("0,1,", "0,5,"));
 });
 test("XML alternate and non-XML safety", () => {
-  const result = core.rewriteXml('<i><d p="0,1,25,0,0,0,u,1">A</d><d p="1,1,25,0,0,0,u,2">B</d></i>', { position: "alternate" });
+  const result = core.rewriteXml('<i><d p="0,1,25,0,0,0,u,1">A</d><d p="1,1,25,0,0,0,u,2">B</d></i>', { motion: "fixed", position: "alternate" });
   assert.match(result.data, /p="0,5,/);
   assert.match(result.data, /p="1,4,/);
   const error = '{"code":-400,"message":"error"}';
-  assert.equal(core.rewriteXml(error).data, error);
-  assert.ok(core.rewriteXml(error).error);
+  assert.equal(core.rewriteXml(error, fixed).data, error);
+  assert.ok(core.rewriteXml(error, fixed).error);
 });
 test("URL allowlist accepts normal, WBI, history and legacy XML only", () => {
   for (const path of ["/x/v2/dm/web/seg.so", "/x/v2/dm/wbi/web/seg.so", "/x/v2/dm/web/history/seg.so"])
@@ -114,8 +115,15 @@ test('live room routes are explicitly separated from VOD and restricted to the l
     'https://live.bilibili.com/13308358/more', 'invalid']) assert.equal(core.isLivePage(url), false, url);
 });
 test("empty and oversize data leave video loading independent", () => {
-  assert.equal(core.rewriteProtobuf(new Uint8Array()).error, null);
+  assert.equal(core.rewriteProtobuf(new Uint8Array(), fixed).error, null);
   const huge = new Uint8Array(16 * 1024 * 1024 + 1);
-  assert.equal(core.rewriteProtobuf(huge).data, huge);
-  assert.ok(core.rewriteProtobuf(huge).error);
+  assert.equal(core.rewriteProtobuf(huge, fixed).data, huge);
+  assert.ok(core.rewriteProtobuf(huge, fixed).error);
+});
+test("defaults initialize to video-sync scrolling danmaku with page animation suppression enabled", () => {
+  assert.deepEqual(core.defaults, { enabled: true, position: "top", motion: "video-sync", hidePlaylistIndicator: true });
+  assert.deepEqual(core.normalizeSettings(null), core.defaults);
+  assert.deepEqual(core.normalizeSettings({}), core.defaults);
+  assert.equal(core.normalizeSettings({ motion: "fixed" }).motion, "fixed");
+  assert.equal(core.normalizeSettings({ hidePlaylistIndicator: false }).hidePlaylistIndicator, false);
 });

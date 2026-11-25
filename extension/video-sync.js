@@ -2,7 +2,9 @@
 (function (root) {
   'use strict';
   const diagnosticKey = 'bfd-video-sync-diagnostics-v1', recoveryDelays = [150, 500, 1500];
-  const syncCSS = '.bfd-video-sync .bili-danmaku-x-dm,.bfd-video-sync .bili-danmaku-x-dm *{animation:none!important;transition:none!important;visibility:hidden!important}';
+  const syncCSS = '.bfd-video-sync .bili-danmaku-x-dm,.bfd-video-sync .bili-danmaku-x-dm *{animation:none!important;transition:none!important;visibility:hidden!important}\n' +
+    '.bpx-player-dm-mask-wrap:has(.bfd-video-sync){visibility:hidden!important;-webkit-mask-image:none!important;mask-image:none!important}\n' +
+    '.bpx-player-render-dm-wrap:has(.bfd-video-sync) .bpx-player-adv-dm-wrap,.bpx-player-render-dm-wrap:has(.bfd-video-sync) .bpx-player-adv-dm-wrap *{animation:none!important;transition:none!important;visibility:hidden!important}';
   const failureMessages = { 'draw-error': '视频合成绘制异常', 'frame-callback-stalled': '视频帧回调停止', 'install-error': '同步适配安装失败',
     'composite-context-lost': '合成画布上下文丢失', 'text-context-lost': '文字画布上下文丢失', 'invalid-frame-time': '视频帧时间不可用',
     InvalidStateError: 'InvalidStateError', SecurityError: 'SecurityError', QuotaExceededError: 'QuotaExceededError', OperationError: 'OperationError', TypeError: 'TypeError' };
@@ -23,6 +25,7 @@
       paused: value?.paused === true, seeking: value?.seeking === true };
   }
   let recentStatus = null, diagnostics = [];
+  const presentationAttempted = new WeakSet();
   function readStoredDiagnostics() {
     try {
       const stored = JSON.parse(root.sessionStorage?.getItem(diagnosticKey) || '[]');
@@ -55,10 +58,51 @@
   }
   function outcome(entry, value) { if (entry && diagnostics.includes(entry)) { entry.recovery = value; persistDiagnostics(); } }
   function create() {
-    let state = null, reason = '未启用', failedRenderer = null, retry = 0, attempt = 0, desired = {};
+    let state = null, reason = '未启用', failedRenderer = null, failedState = null, retry = 0, attempt = 0, lastPageKey = cleanPageKey(), desired = {};
     let recovery = null, recoveryAttempts = 0, pageHidden = false;
     function isTabHidden() {
       return typeof document === 'object' && (document?.hidden === true || document?.visibilityState === 'hidden');
+    }
+    function clearPresentationSamples(s) {
+      if (!s) return;
+      s.cadence = null;
+      s.presentationRates = { sampledFPS: 0, callbackFPS: 0, droppedFPS: 0 };
+    }
+    function cancelPresentationRefresh(s) { try { s?.surface?.cancelPresentationRefresh?.(); } catch {} }
+    function samplePresentation(s, now, metadata) {
+      const video = s.video;
+      if (pageHidden || isTabHidden() || video.paused || video.ended || video.seeking || video.readyState < 2 || !Number.isFinite(now)) {
+        clearPresentationSamples(s); cancelPresentationRefresh(s); return;
+      }
+      const source = video.currentSrc || '', previous = s.cadence;
+      if (previous && (source !== previous.source || now < previous.lastAt || now - previous.lastAt > 2500 || metadata.mediaTime < previous.lastMediaTime)) {
+        clearPresentationSamples(s); cancelPresentationRefresh(s);
+      }
+      if (presentationAttempted.has(video)) {
+        if (s.cadence) { s.cadence.lastAt = now; s.cadence.lastMediaTime = metadata.mediaTime; }
+        return;
+      }
+      let value;
+      try { value = video.getVideoPlaybackQuality?.(); } catch { clearPresentationSamples(s); return; }
+      const total = value?.totalVideoFrames, dropped = value?.droppedVideoFrames;
+      if (!Number.isFinite(total) || !Number.isFinite(dropped) || total < 0 || dropped < 0 || dropped > total) { clearPresentationSamples(s); return; }
+      if (s.cadence && (total < s.cadence.lastTotal || dropped < s.cadence.lastDropped)) clearPresentationSamples(s);
+      if (!s.cadence) {
+        s.cadence = { source, at: now, total, dropped, callbacks: 0, qualifying: 0,
+          lastAt: now, lastMediaTime: metadata.mediaTime, lastTotal: total, lastDropped: dropped };
+        return;
+      }
+      const win = s.cadence;
+      win.callbacks++; win.lastAt = now; win.lastMediaTime = metadata.mediaTime; win.lastTotal = total; win.lastDropped = dropped;
+      const elapsed = now - win.at;
+      if (elapsed < 1000) return;
+      const delta = total - win.total;
+      s.presentationRates = { sampledFPS: Math.round(delta * 10000 / elapsed) / 10,
+        callbackFPS: Math.round(win.callbacks * 10000 / elapsed) / 10, droppedFPS: Math.round((dropped - win.dropped) * 10000 / elapsed) / 10 };
+      win.qualifying = win.callbacks >= 8 && delta >= 16 && delta / win.callbacks >= 1.75 ? Math.min(2, win.qualifying + 1) : 0;
+      win.at = now; win.total = total; win.dropped = dropped; win.callbacks = 0;
+      if (win.qualifying < 2) return;
+      try { if (s.surface?.refreshPresentation?.() === true) presentationAttempted.add(video); } catch {}
     }
     function currentRenderer() { try { return root.player?.danmaku?.getDanmakuX?.(); } catch { return null; } }
     function ensureSyncStyle(s) {
@@ -77,15 +121,19 @@
       }
       if (resetBudget) recoveryAttempts = 0;
     }
-    function unavailable(renderer, message, error) {
+    function unavailable(renderer, message, error, permanent = true) {
       clearRecovery('unavailable');
-      failedRenderer = renderer; reason = message;
+      failedRenderer = renderer;
+      failedState = { renderer, scheduler: renderer?.frameScheduler, hasVisualArray: Array.isArray(renderer?.manager?.visualArray), permanent };
+      reason = message;
       outcome(recordFailure('install', error), 'unavailable');
     }
     function restore(s, resumeNative) {
       if (s.pending || !s.useMozPresented) s.video.cancelVideoFrameCallback?.(s.pending);
       if (s.mozPending) root.cancelAnimationFrame(s.mozPending);
       if (s.uiPending) root.cancelAnimationFrame(s.uiPending);
+      clearPresentationSamples(s);
+      cancelPresentationRefresh(s);
       // A renderer being replaced must never restart its old native RAF loop.
       try { s.scheduler.stop(); } catch {}
       s.resizeObserver?.disconnect();
@@ -148,6 +196,14 @@
       armRecovery(r);
     }
     function update(settings, renderer, recoveryAttach = false) {
+      const currentKey = cleanPageKey();
+      if (currentKey !== lastPageKey) {
+        lastPageKey = currentKey;
+        attempt = 0;
+        failedRenderer = null;
+        failedState = null;
+        clearRecovery('renderer-changed', true);
+      }
       if (root.BFDFixedCore && !root.BFDFixedCore.isVideoPage(root.location.href)) settings = { enabled: false };
       if (desired.enabled !== settings.enabled || desired.motion !== settings.motion) attempt = 0;
       desired = settings;
@@ -155,6 +211,7 @@
         clearRecovery('disabled', true);
         if (retry) { clearTimeout(retry); retry = 0; }
         failedRenderer = null;
+        failedState = null;
         if (state) stop('未启用');
         return;
       }
@@ -171,37 +228,54 @@
         return;
       }
       if (state) stop('等待播放器', false);
+      const delays = [50, 150, 350, 750, 1500, 3000];
       if (!renderer || !video || !container?.isConnected) {
         reason = '等待原生播放器就绪';
         // Player internals may appear after canplay. Bounded readiness retries,
         // never a continuous timer or a substitute for video-frame scheduling.
-        const delays = [50, 150, 350, 750, 1500, 3000];
         if (!retry && attempt < delays.length) retry = setTimeout(() => {
           retry = 0; update(desired, root.player?.danmaku?.getDanmakuX?.());
         }, delays[attempt++]);
         return;
       }
-      if (retry) { clearTimeout(retry); retry = 0; }
-      if (renderer === failedRenderer) return;
+      if (failedRenderer === renderer && failedState) {
+        if (failedState.permanent) return;
+        if (failedState.scheduler === renderer.frameScheduler && failedState.hasVisualArray === Array.isArray(renderer.manager?.visualArray)) return;
+        failedRenderer = null;
+        failedState = null;
+      }
       const useMozPresented = typeof video.mozPresentedFrames === 'number' && typeof root.requestAnimationFrame === 'function';
       if (!useMozPresented && (typeof video.requestVideoFrameCallback !== 'function' || typeof video.cancelVideoFrameCallback !== 'function')) {
+        if (retry) { clearTimeout(retry); retry = 0; }
         unavailable(renderer, '此浏览器不支持视频帧回调'); return;
       }
       if (typeof root.BFDCompositor?.create !== 'function') {
+        if (retry) { clearTimeout(retry); retry = 0; }
         unavailable(renderer, '此浏览器不支持合成画布'); return;
       }
       const scheduler = renderer.frameScheduler, clock = renderer.timeController;
       if (!scheduler || !['start', 'stop', 'startImmediate'].every(name => typeof scheduler[name] === 'function') ||
           !clock || typeof clock.updateTime !== 'function' || !Array.isArray(renderer.manager?.visualArray)) {
-        unavailable(renderer, '当前播放器版本暂不支持同步滚动'); return;
+        if (!recoveryAttach && attempt < delays.length) {
+          reason = '等待原生播放器就绪';
+          if (!retry) retry = setTimeout(() => {
+            retry = 0; update(desired, root.player?.danmaku?.getDanmakuX?.());
+          }, delays[attempt++]);
+          return;
+        }
+        if (retry) { clearTimeout(retry); retry = 0; }
+        unavailable(renderer, '当前播放器版本暂不支持同步滚动', null, recoveryAttach); return;
       }
+      if (retry) { clearTimeout(retry); retry = 0; }
+      attempt = 0;
       // In Gecko, chained requestVideoFrameCallback misses ~30-50% of frames on
       // 50/60fps streams due to compositor IPC latency. Polling mozPresentedFrames
       // on rAF catches 100% of presented frames while leaving non-video ticks idle.
       const s = { renderer, video, container, scheduler, clock, patches: [], events: [], uiEvents: [],
         useMozPresented, pending: 0, mozPending: 0, lastPresented: null, uiPending: 0, uiFrames: 0, seekPending: false,
         frames: 0, updated: 0, fps: 0, windowFrames: 0, windowStart: null, lastMedia: null,
-        renderTime: null, mediaTime: null, reset: true, inFrame: false, stableFrames: 0, lastCallbackAt: Date.now() };
+        renderTime: null, mediaTime: null, reset: true, inFrame: false, stableFrames: 0, lastCallbackAt: Date.now(),
+        cadence: null, presentationRates: { sampledFPS: 0, callbackFPS: 0, droppedFPS: 0 } };
       function patch(object, name, wrapped) {
         const native = object[name]; object[name] = wrapped;
         if (object[name] !== wrapped) throw new Error('播放器调度不可修改');
@@ -288,7 +362,11 @@
           if (videoFrame) schedule();
           const painted = s.surface.draw();
           if (painted) s.updated++;
-          if (videoFrame) { s.frames++; s.windowFrames++; } else s.uiFrames++;
+          if (videoFrame) {
+            if (painted) samplePresentation(s, now, metadata);
+            else { clearPresentationSamples(s); cancelPresentationRefresh(s); }
+            s.frames++; s.windowFrames++;
+          } else s.uiFrames++;
           if (videoFrame && recoveryAttempts > 0) {
             s.stableFrames = painted ? s.stableFrames + 1 : 0;
             if (recovery) recovery.stableFrames = s.stableFrames;
@@ -345,11 +423,12 @@
         function listen(name, fn) { video.addEventListener(name, fn); s.events.push([name, fn]); }
         function resetFps() { s.windowStart = null; s.windowFrames = 0; s.fps = 0; }
         listen('play', () => { cancel(); s.reset = true; s.lastPresented = null; s.lastCallbackAt = Date.now(); resetFps(); schedule(); });
-        listen('pause', cancel); listen('ended', cancel);
-        listen('seeking', () => { cancel(); s.reset = true; s.seekPending = true; s.lastPresented = null; s.stableFrames = 0; if (recovery) recovery.stableFrames = 0; });
+        listen('pause', () => { cancel(); clearPresentationSamples(s); cancelPresentationRefresh(s); });
+        listen('ended', () => { cancel(); clearPresentationSamples(s); cancelPresentationRefresh(s); });
+        listen('seeking', () => { cancel(); clearPresentationSamples(s); cancelPresentationRefresh(s); s.reset = true; s.seekPending = true; s.lastPresented = null; s.stableFrames = 0; if (recovery) recovery.stableFrames = 0; });
         listen('seeked', () => { s.reset = true; s.seekPending = true; s.lastPresented = null; s.lastCallbackAt = Date.now(); resetFps(); schedule(true); });
         listen('ratechange', () => { s.lastMedia = null; resetFps(); schedule(); });
-        listen('emptied', () => { clearRecovery('media-loading'); stop('等待视频重新加载'); });
+        listen('emptied', () => { attempt = 0; clearRecovery('media-loading'); stop('等待视频重新加载'); });
         listen('loadeddata', () => { s.lastPresented = null; schedule(); });
         listen('canplay', () => { if (!s.surface.status().committed) schedule(); });
         const playerBox = container.closest('.bpx-player-container');
@@ -390,17 +469,20 @@
     function status() {
       const recoveryStatus = { phase: recovery?.phase || (failedRenderer ? 'unavailable' : state && recoveryAttempts > 0 ? 'stabilizing' : 'idle'), attempts: recoveryAttempts, maxAttempts: recoveryDelays.length,
         stableFrames: state?.stableFrames || recovery?.stableFrames || 0, stableFramesRequired: 120 };
+      const presentationRecovery = { attempted: !!state?.video && presentationAttempted.has(state.video),
+        ...(state?.presentationRates || { sampledFPS: 0, callbackFPS: 0, droppedFPS: 0 }) };
       return state ? { active: true, frames: state.frames, uiFrames: state.uiFrames, updates: state.updated, fps: state.fps,
-        mediaTime: state.mediaTime, paused: state.video.paused, composite: state.surface.status(), reason: '', recovery: recoveryStatus } : { active: false, reason, recovery: recoveryStatus };
+        mediaTime: state.mediaTime, paused: state.video.paused, composite: state.surface.status(), reason: '', recovery: recoveryStatus, presentationRecovery } : { active: false, reason, recovery: recoveryStatus, presentationRecovery };
     }
     document?.addEventListener?.('visibilitychange', () => {
       if (isTabHidden()) {
         if (recovery?.timer) { clearTimeout(recovery.timer); recovery.timer = 0; recovery.phase = 'page-hidden'; outcome(recovery.record, 'page-hidden'); }
-        if (state) { state.windowStart = null; state.windowFrames = 0; }
+        if (state) { clearPresentationSamples(state); cancelPresentationRefresh(state); state.windowStart = null; state.windowFrames = 0; }
         return;
       }
       if (pageHidden) return;
       if (state) {
+        clearPresentationSamples(state);
         state.lastCallbackAt = Date.now();
         state.reset = true;
         state.lastPresented = null;

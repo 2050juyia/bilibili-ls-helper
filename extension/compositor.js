@@ -32,14 +32,44 @@
       webgl?.dispose();
       throw new Error('浏览器不支持合成画布');
     }
+    // Keep <video> visible beneath the opaque alpha:false canvas in Chromium:
+    // hiding <video> with visibility:hidden can halve 60 FPS requestVideoFrameCallback
+    // delivery (e.g. 1080P 60fps VOD streams) to 30 FPS. Only Gecko WebGL hides <video>.
     const previous = ['visibility', 'pointer-events'].map(name => [container, name, container.style.getPropertyValue(name), container.style.getPropertyPriority(name)]);
-    previous.push([video, 'visibility', video.style.getPropertyValue('visibility'), video.style.getPropertyPriority('visibility')]);
+    if (webgl) previous.push([video, 'visibility', video.style.getPropertyValue('visibility'), video.style.getPropertyPriority('visibility')]);
     const position = getComputedStyle(host).position;
     if (position === 'static') {
       previous.push([host, 'position', host.style.getPropertyValue('position'), host.style.getPropertyPriority('position')]);
       host.style.setProperty('position', 'relative');
     }
-    let frames = 0, comments = 0, skipped = 0, committed = false, lastLayout = '';
+    let frames = 0, comments = 0, skipped = 0, committed = false, lastLayout = '', presentationRefresh = null;
+    function cancelPresentationRefresh() {
+      const record = presentationRefresh; presentationRefresh = null;
+      if (!record) return false;
+      if (canvas.style.getPropertyValue('opacity') === '0.999' && canvas.style.getPropertyPriority('opacity') === 'important') {
+        if (record.value) canvas.style.setProperty('opacity', record.value, record.priority);
+        else canvas.style.removeProperty('opacity');
+      }
+      return true;
+    }
+    function refreshPresentation() {
+      if (!committed || presentationRefresh) return false;
+      const css = getComputedStyle(canvas);
+      if (Number(css.opacity ?? 1) !== 1) return false;
+      const properties = String(css.transitionProperty || 'all').split(',').map(value => value.trim());
+      const durations = String(css.transitionDuration || '0s').split(',').map(parseFloat);
+      const delays = String(css.transitionDelay || '0s').split(',').map(parseFloat);
+      if (properties.some((property, index) => ['all', 'opacity'].includes(property) &&
+          (durations[index % durations.length] > 0 || delays[index % delays.length] > 0))) return false;
+      if (String(css.animationName || 'none').split(',').some(value => value.trim() !== 'none')) return false;
+      try {
+        if ((canvas.getAnimations?.() || []).some(animation => !['finished', 'idle'].includes(animation.playState) &&
+            animation.effect?.getKeyframes?.().some(frame => Object.prototype.hasOwnProperty.call(frame, 'opacity')))) return false;
+      } catch { return false; }
+      presentationRefresh = { value: canvas.style.getPropertyValue('opacity'), priority: canvas.style.getPropertyPriority('opacity'), remaining: 2 };
+      canvas.style.setProperty('opacity', '0.999', 'important');
+      return true;
+    }
     function layoutKey() {
       const hostBox = host.getBoundingClientRect(), videoBox = video.getBoundingClientRect(), dmBox = container.getBoundingClientRect();
       return [hostBox.width, hostBox.height, videoBox.x - hostBox.x, videoBox.y - hostBox.y, videoBox.width, videoBox.height,
@@ -60,6 +90,7 @@
     }
     function clearSprites() { for (const cached of sprites.keys()) releaseSprite(cached); }
     function restore() {
+      cancelPresentationRefresh();
       canvas.remove();
       for (const [node, name, value, priority] of previous) {
         const owned = name === 'position' ? 'relative' : name === 'pointer-events' ? 'none' : 'hidden';
@@ -288,7 +319,7 @@
       // Reassert ownership only after a complete image was presented. Stable
       // frames do not mutate the DOM or produce an additional presentation.
       if (host.isConnected && canvas.parentElement !== host) host.appendChild(canvas);
-      for (const node of [video, container]) {
+      for (const node of (webgl ? [video, container] : [container])) {
         if (node.style.getPropertyValue('visibility') !== 'hidden' || node.style.getPropertyPriority('visibility') !== 'important') {
           node.style.setProperty('visibility', 'hidden', 'important');
         }
@@ -299,12 +330,13 @@
       if (canvas.style.getPropertyValue('visibility') !== 'visible' || canvas.style.getPropertyPriority('visibility') !== 'important') {
         canvas.style.setProperty('visibility', 'visible', 'important');
       }
+      if (presentationRefresh && --presentationRefresh.remaining <= 0) cancelPresentationRefresh();
       committed = true;
       frames++;
       lastLayout = layoutKey();
       return true;
     }
-    return { draw, restore, host, needsResize: () => layoutKey() !== lastLayout,
+    return { draw, restore, host, refreshPresentation, cancelPresentationRefresh, needsResize: () => layoutKey() !== lastLayout,
       status: () => ({ surface: webgl ? 'webgl-single-canvas' : 'single-canvas', backend: webgl ? 'webgl' : '2d-bitmaprenderer', presents: frames, comments, skipped, committed,
         textCache: { entries: sprites.size, bytes: spriteBytes, hits: spriteHits, builds: spriteBuilds,
           maxBytes: maxSpriteBytes, maxEntries: maxSprites, maxEntryBytes } }) };

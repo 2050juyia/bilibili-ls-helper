@@ -2,7 +2,25 @@
 
 本文件提炼面向用户的更新，不把受控测试结果当成所有设备的补帧保证。详细实现与验证边界见 `TEST-REPORT.md`。
 
-## 1.5.0
+## 1.5.3
+
+- 「减少页面动画」新增B站直播跨房广播横幅（`NOTICE_MSG`，`DanmakuAnnouncementController` 挂载于 `#businessContainerElement` 下的无类名 `positionCtnr`／`wrapperDom` 线性位移动画及 `.announcement-wrapper` 首尾精灵帧动画）与全屏无交互特效浮层（点赞时刻、热度、PK 动画、节奏风暴等）抑制。
+- 直播网页全屏（`body.player-full-win`）与原生全屏（`body.fullscreen-fix`）补齐被遮挡背景分支隔离及自动隐藏态（`opacity: 0`）底部礼花栏的 `visibility: hidden` 裁剪，同时完整保留播放器控制栏、全屏弹幕输入、菜单与验证弹窗交互。
+- 同步更新 Chromium 与 Firefox（140+）双端安装包及 `scripts/package.py --working-tree` 开发校验模式，完成 1.5.0–1.5.3 公开版本合入发布。
+
+## 1.5.2（本地交付）
+
+- 修复开启 AI 智能防挡弹幕（人物/竖屏等片源的 `div.bpx-player-dm-mask-wrap`）时，B站脚本以约 25–30Hz 独立重写内联 SVG `mask-image` 导致 Edge / Chrome 在视频帧之外产生错位全屏合成提交、干扰小黄鸭光流插帧的问题：滚动弹幕同步样式以 `!important` 隐藏蒙版与高级弹幕层（`.bpx-player-adv-dm-wrap`）并清除遮罩图像，同时保留元素几何盒模型（不使用 `display: none`）。
+- 「减少页面动画」在播放器控制栏自动隐藏（`.bpx-state-no-cursor`）时隐藏底部 2px 阴影进度条（`.bpx-player-shadow-progress-area`），消除常规窗口与网页全屏下的底部边缘额外合成提交。
+
+## 1.5.1（本地交付）
+
+- 全新安装默认启用「滚动弹幕」（`motion: "video-sync"`）与「减少页面动画」（`hidePlaylistIndicator: true`）；已保存的「固定弹幕」或关闭状态不受影响。
+- 修复点播页点击右侧推荐视频（`router-related`）等 SPA 路由切换后未自动重新绑定新播放器／弹幕容器的问题：监听 `pushState`、`replaceState`、`popstate` 及媒体生命周期事件重置路由状态与就绪重试预算。
+- 修复 Chromium（Edge / Chrome）点播滚动模式下隐藏原生 `<video>` 导致部分 60fps 视频 `requestVideoFrameCallback` 降为约 30fps 的问题：Chromium 保持底层 `<video>` 可见并由不透明合成画布覆盖（仅 Firefox WebGL 隐藏原生 `<video>`），同时为点播补充同一 `<video>` 最多一次的有界呈现状态恢复。
+- 「减少页面动画」的全屏外围隔离扩展至普通视频与番剧原生全屏页，并补充动态直播状态图标及互动引导动效抑制。
+
+## 1.5.0（本地交付）
 
 - 新增桌面端 Mozilla Firefox（140+，含 ESR 及正式版）完整适配，统一兼容 `browser.*` 与 `chrome.*` WebExtensions 命名空间及 Promise 消息回复。
 - 修复 Firefox（Gecko）下 2D `OffscreenCanvas` 视频像素跨进程回读导致原视频掉帧、以及保留原生 `<video>` 独立 DirectComposition 硬件视频叠加层交换链（`dcomp-video-hw-overlay-win`）导致 Windows Graphics Capture 每帧捕获双交换链异步翻转、破坏小黄鸭光流插帧的问题：Firefox 点播与直播新增零回读 WebGL 单画布合成后端（`webgl-surface.js`，`surface: "webgl-single-canvas"`），在 GPU 内直接将硬件视频纹理与缓存弹幕精灵合成至单一 `{ alpha: false }` 画布并关闭独立视频叠加交换链，兼顾未开小黄鸭时原视频零掉帧与开启小黄鸭时的单交换链原子提交；Chromium 端保持原有单画布行为不变。

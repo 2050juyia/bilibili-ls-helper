@@ -1,5 +1,25 @@
 # 检查说明
 
+## 1.5.3检查（2026-11-24）
+
+本轮基于 1.5.0 基线（`9efe982`）完成 1.5.1–1.5.3 连续修复、默认配置升级与双端同步验证。当前 19 个扩展运行文件的 SHA256 见 `SOURCE-MANIFEST.json`。
+
+- `npm test` 通过 **274 项** 检查（0 失败、0 跳过、0 取消），`npm run check` 通过全部 **12 个** 扩展脚本语法检查，新增回归覆盖：
+  - 全新安装空存储默认启用 `enabled: true`、`motion: "video-sync"`（滚动弹幕）与 `hidePlaylistIndicator: true`（减少页面动画），且不覆盖用户显式保存的 `fixed` 或关闭设置；
+  - 点播 SPA 路由切换（`history.pushState`、`replaceState`、`popstate` 及右侧 `router-related` 推荐视频切换）自动重置就绪重试预算并重绑新播放器与弹幕容器；
+  - Chromium 点播 `BFDCompositor` 保持原生 `<video>` 可见（由不透明 `2d-bitmaprenderer` 画布覆盖）以维持 60fps 视频 `requestVideoFrameCallback` 满帧投递，并支持同一 `<video>` 最多一次的有界呈现状态恢复；
+  - 点播滚动同步样式 `syncCSS` 以 `!important` 隐藏 AI 智能防挡蒙版 `div.bpx-player-dm-mask-wrap:has(.bfd-video-sync)`（清除 `-webkit-mask-image`/`mask-image` 且不使用 `display: none`，保留子元素几何盒模型）及高级弹幕层 `.bpx-player-adv-dm-wrap`；
+  - 「减少页面动画」在无光标空闲态隐藏 `.bpx-state-no-cursor .bpx-player-shadow-progress-area` 底部阴影进度条，在点播、番剧与直播全屏／网页全屏下隔离已识别的外围分支，并抑制直播跨房广播横幅（`#businessContainerElement > div:has(.announcement-wrapper)` 无类名 `positionCtnr`/`wrapperDom` 及 `.announcement-wrapper` 精灵动画）、全屏无交互动效浮层与自动渐隐（`opacity: 0`）礼花栏，同时确保控制栏、菜单、全屏弹幕输入及 `.geetest_*` 验证弹窗不受影响；
+  - `scripts/package.py --working-tree` 与默认已提交 `HEAD` 双端打包校验。
+- Chrome / Edge 受控 DirectComposition / SwapChain 呈现追踪验证：
+  - 在开启 AI 智能防挡蒙版的真实点播页（`BV1Uthv6fEKw`，全屏 `2560×1440`）核对：未抑制蒙版前 B 站脚本每约 33ms 独立重写 SVG `mask-image` 产生额外全屏提交（30fps 片源下 `DCompPresenter::Present` 达 51.6–64.0/s，`<10ms` 重复帧突发 14.0–27.6/s）；应用 `syncCSS` 修复后降回与视频帧一致的约 31.6/s，`<10ms` 突发降为 0.0/s。
+  - 在网页全屏无光标状态下隐藏 `.bpx-player-shadow-progress-area` 后，消除底部 2px 进度条引起的额外每秒 2.4–4.0 次脏区提交。
+- 本机 **Mozilla Firefox 160.0.1** Marionette 受控验收与真实页面端到端验证：
+  - `node scripts/firefox-ui-check.cjs` 5 组受控检查全部通过（临时载入 `1.5.3` `-firefox.zip`、空存储默认项核对、Gecko CSSOM 解析 `playlist-indicator.js` `7/7` 条与 `video-sync.js` `3/3` 条规则无回退丢弃、跨世界消息往返、直播 `NOTICE_MSG` 横幅 `0` 运行动画）。
+  - 在真实 B 站点播页（`BV1Uthv6fEKw`）与活跃直播间（`1716079620`）验证：`webgl-single-canvas` 满帧零掉帧呈现，在常规、网页全屏（`body.player-full-win`）与原生全屏（`#fullscreen-container`）三种模式下触发原生 `DanmakuAnnouncementController` 跨房广播横幅，实测 `bannerRunningAnimations: 0`，播放器控制栏与弹幕输入保持正常交互。
+
+测试配置、追踪产物与报告保存在忽略目录 `work/`（位于 E 盘工作区，未写入 C 盘，未进入 Git）。受控自动化与合成器追踪验证不代替所有显卡驱动、显示器刷新率及片源下的 Lossless Scaling 实机效果承诺。
+
 ## 1.5.0检查（2026-11-22）
 
 本轮基于已验收的 1.4.6 基线（`b2f2818`）完成桌面端 Mozilla Firefox（140+）适配与双端分流构建。当前扩展文件哈希见 `SOURCE-MANIFEST.json`。

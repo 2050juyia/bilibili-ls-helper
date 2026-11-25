@@ -57,24 +57,36 @@ function generateLoopbackCert(opensslBin) {
 
 const vodHtml = `<!doctype html><meta charset="utf-8"><title>Firefox VOD Composite Check</title>
 <style>
+  @keyframes bfdAdvSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   body { font: 15px/1.6 system-ui, sans-serif; margin: 20px; background: #f4f5f7; color: #18191c; }
   img, .playing-gif { display: inline-block !important; width: 18px; height: 18px; background: #00aeec; }
   .bpx-player-container { position: relative; width: 640px; height: 360px; background: #000; overflow: hidden; }
   .bpx-player-video-perch { position: relative; width: 100%; height: 100%; }
   video { width: 100%; height: 100%; display: block; }
-  .bpx-player-row-dm-wrap { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+  .bpx-player-render-dm-wrap, .bpx-player-dm-mask-wrap, .bpx-player-row-dm-wrap, .bpx-player-adv-dm-wrap { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
   .bili-danmaku-x-dm { position: absolute; left: 520px; top: 36px; font: 700 24px "Microsoft YaHei", sans-serif; color: #fff; text-shadow: 1px 1px 2px #000; white-space: nowrap; }
+  .bpx-player-shadow-progress-area { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #00aeec; }
+  .bpx-player-progress-area { position: absolute; left: 0; right: 0; bottom: 6px; height: 6px; background: #fb7299; }
 </style>
 <div>
   <span id="legacy" class="playing-gif"></span>
   <img id="modern" class="PlayingIcon_playIcon__fxTest" src="https://activity.hdslb.com/blackboard/static/dir/playing.png">
   <img id="unrelated" src="https://www.bilibili.com/keep.png">
 </div>
-<div class="bpx-player-container">
+<div id="bilibili-player" class="bpx-player-container bpx-state-no-cursor">
   <div class="bpx-player-video-perch"><video id="video" muted playsinline></video></div>
-  <div id="dm-container" class="bpx-player-row-dm-wrap">
-    <div id="dm-item" class="bili-danmaku-x-dm bili-danmaku-x-roll">Firefox 60fps 帧同步弹幕验证</div>
+  <div id="dm-render-wrap" class="bpx-player-render-dm-wrap">
+    <div id="dm-mask-wrap" class="bpx-player-dm-mask-wrap" style="-webkit-mask-image: linear-gradient(#000, transparent); mask-image: linear-gradient(#000, transparent);">
+      <div id="dm-container" class="bpx-player-row-dm-wrap">
+        <div id="dm-item" class="bili-danmaku-x-dm bili-danmaku-x-roll">Firefox 60fps 帧同步弹幕验证</div>
+      </div>
+    </div>
+    <div id="adv-dm-wrap" class="bpx-player-adv-dm-wrap">
+      <div id="adv-dm-child" style="animation: bfdAdvSpin 1s linear infinite;">高级弹幕</div>
+    </div>
   </div>
+  <div id="shadow-progress" class="bpx-player-shadow-progress-area"></div>
+  <div id="full-progress" class="bpx-player-progress-area"></div>
 </div>
 <script>
   const srcCanvas = document.createElement('canvas');
@@ -132,22 +144,48 @@ const vodHtml = `<!doctype html><meta charset="utf-8"><title>Firefox VOD Composi
 
 const liveHtml = `<!doctype html><meta charset="utf-8"><title>Firefox Live Composite Check</title>
 <style>
+  @keyframes bfdBannerSlide { from { transform: translateX(640px); } to { transform: translateX(-640px); } }
+  @keyframes bfdBannerSprite { from { background-position: 0 0; } to { background-position: -120px 0; } }
   body { margin: 20px; background: #11161f; color: #fff; font: 15px system-ui, sans-serif; }
   .live-room-app { position: relative; }
   #live-player { position: relative; width: 640px; height: 360px; background: #000; overflow: hidden; }
   video { width: 100%; height: 100%; display: block; }
   .web-player-danmaku { position: absolute; inset: 0; z-index: 2; }
   .bili-danmaku-x-dm { position: absolute; left: 180px; top: 42px; font: 700 24px "Microsoft YaHei", sans-serif; color: #fff; text-shadow: 1px 1px 2px #000; }
+  .web-player-inject-wrap { position: absolute; inset: 0; z-index: 9; pointer-events: none; }
+  .web-player-controller-wrap { position: absolute; left: 0; right: 0; bottom: 0; height: 36px; z-index: 10; }
 </style>
+<body class="player-full-win">
 <div class="live-room-app">
-  <div class="head-info-vm" id="periphery-head">直播间头部外围</div>
-  <div id="live-player">
-    <video id="live-video" muted playsinline></video>
-    <div class="web-player-danmaku">
-      <div class="bili-danmaku-x-dm bili-danmaku-x-show">Firefox 直播弹幕合成 <img src="https://live.bilibili.com/bfs/emote/test.png" width="24" height="24" alt="[doge]"></div>
+  <div class="head-info-vm" id="head-info-vm">直播间头部外围</div>
+  <div id="fullscreen-container">
+    <div id="live-player">
+      <video id="live-video" muted playsinline></video>
+      <div class="web-player-danmaku">
+        <div class="bili-danmaku-x-dm bili-danmaku-x-show">Firefox 直播弹幕合成 <img src="https://live.bilibili.com/bfs/emote/test.png" width="24" height="24" alt="[doge]"></div>
+      </div>
+      <div class="web-player-inject-wrap">
+        <div id="businessContainerElement">
+          <div id="fullscreen-danmaku-vm">全屏弹幕输入区</div>
+          <div data-testid="notice-position-ctnr" style="position:absolute;top:0;left:0;width:100%;height:60px;">
+            <div data-testid="notice-wrapper-dom" style="will-change:transform;transition:transform 20s linear;animation:bfdBannerSlide 12s linear infinite;">
+              <div id="notice-aw" class="announcement-wrapper clearfix no-select" style="background-image:linear-gradient(90deg,#ff6699,#00aeec);">
+                <div id="notice-head-icon" class="gift-prefix head-icon notice-62-icon" style="animation:bfdBannerSprite 1s steps(4) infinite;"></div>
+                <span>跨房广播通知横幅</span>
+                <span id="notice-tail-icon" class="tail-icon dp-i-block" style="animation:bfdBannerSprite 1s steps(4) infinite;"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="web-player-controller-wrap-el" class="web-player-controller-wrap">控制栏</div>
+    </div>
+    <div id="gift-control-vm">
+      <div id="gift-section" class="gift-control-section" style="opacity: 0;">底部礼物栏</div>
     </div>
   </div>
 </div>
+</body>
 <script>
   const srcCanvas = document.createElement('canvas');
   srcCanvas.width = 640; srcCanvas.height = 360;
@@ -414,7 +452,7 @@ class MarionetteClient {
     await client.send('Marionette:SetContext', { value: 'content' });
     await client.send('WebDriver:SetWindowRect', { width: 1100, height: 820 });
 
-    // 2. Open popup.html in tab 1 and configure video-sync + hidePlaylistIndicator
+    // 2. Open popup.html in tab 1 and verify fresh-install defaults (empty browser.storage.local -> video-sync + hidePlaylistIndicator: true)
     const handleRes = await client.send('WebDriver:GetWindowHandle');
     const popupHandle = handleRes.value ?? handleRes;
     await client.send('WebDriver:Navigate', { url: `moz-extension://${addon.uuid}/popup.html` });
@@ -425,18 +463,15 @@ class MarionetteClient {
           for (let i = 0; i < 50 && document.getElementById('enabled').disabled; i++) {
             await new Promise(r => setTimeout(r, 40));
           }
-          const motion = document.getElementById('motion');
-          motion.value = 'video-sync';
-          motion.dispatchEvent(new Event('change', { bubbles: true }));
-          const anim = document.getElementById('hide-playlist-indicator');
-          anim.checked = true;
-          anim.dispatchEvent(new Event('change', { bubbles: true }));
-          await new Promise(r => setTimeout(r, 120));
-          const stored = await browser.storage.local.get('bfdSettings');
+          const initialStored = await browser.storage.local.get('bfdSettings');
           done({
             versionText: document.getElementById('version').textContent,
+            enabledChecked: document.getElementById('enabled').checked,
             enabledLabel: document.getElementById('enabled-label').textContent,
-            stored: stored.bfdSettings,
+            motionValue: document.getElementById('motion').value,
+            positionHidden: document.getElementById('position-options').hidden,
+            hidePlaylistIndicatorChecked: document.getElementById('hide-playlist-indicator').checked,
+            initialStored: initialStored.bfdSettings ?? null,
             hasHorizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
           });
         })();
@@ -444,15 +479,18 @@ class MarionetteClient {
       args: []
     });
     assert.equal(popupState.value.versionText, version);
+    assert.equal(popupState.value.initialStored, null, 'Fresh install must keep storage unset until user changes controls');
+    assert.equal(popupState.value.enabledChecked, true);
     assert.equal(popupState.value.enabledLabel, '已开启');
-    assert.equal(popupState.value.stored.motion, 'video-sync');
-    assert.equal(popupState.value.stored.hidePlaylistIndicator, true);
+    assert.equal(popupState.value.motionValue, 'video-sync', 'Fresh install must default motion to video-sync');
+    assert.equal(popupState.value.positionHidden, true, 'Fixed-position options must stay hidden in video-sync mode');
+    assert.equal(popupState.value.hidePlaylistIndicatorChecked, true, 'Fresh install must default hidePlaylistIndicator to true');
     assert.equal(popupState.value.hasHorizontalOverflow, false);
     const popupShot = (await client.send('WebDriver:TakeScreenshot')).value;
     fs.writeFileSync(path.join(out, 'popup-firefox.png'), Buffer.from(popupShot, 'base64'));
-    report.checks.push({ name: 'popup UI renders, saves via browser.storage.local, and avoids overflow', popup: popupState.value });
+    report.checks.push({ name: 'popup UI renders with v1.5.1+ fresh-install defaults (video-sync + hidePlaylistIndicator: true) and avoids overflow', popup: popupState.value });
 
-    // 3. Open tab 2 for VOD fixture: verify playlist-indicator + video-sync > 2.5s + bridge Promise status
+    // 3. Open tab 2 for VOD fixture (still with empty storage to verify content-script defaults + v1.5.2 :has() rules)
     const newTabRes = await client.send('WebDriver:NewWindow', { type: 'tab' });
     const contentHandle = newTabRes.handle ?? newTabRes.value?.handle;
     await client.send('WebDriver:SwitchToWindow', { handle: contentHandle });
@@ -462,29 +500,76 @@ class MarionetteClient {
       script: `
         const [done] = arguments;
         (async () => {
-          await window.__startFixturePlayback();
-          // Run past the 2000ms stale threshold to prove Gecko rVFC stays continuous!
-          await new Promise(r => setTimeout(r, 2600));
-          const video = document.getElementById('video');
-          const syncStatus = window.BFDVideoSync?.readStatus?.();
-          const diagnostics = window.BFDVideoSync?.readDiagnostics?.() || [];
-          done({
-            legacyDisplay: getComputedStyle(document.getElementById('legacy')).display,
-            modernDisplay: getComputedStyle(document.getElementById('modern')).display,
-            unrelatedDisplay: getComputedStyle(document.getElementById('unrelated')).display,
-            videoVisibility: getComputedStyle(video).visibility,
-            dmVisibility: getComputedStyle(document.getElementById('dm-container')).visibility,
-            syncStatus,
-            diagnostics
-          });
+          try {
+            await window.__startFixturePlayback();
+            // Run past the 2000ms stale threshold to prove Gecko rVFC stays continuous!
+            await new Promise(r => setTimeout(r, 2600));
+            const video = document.getElementById('video');
+            const dmMaskWrap = document.getElementById('dm-mask-wrap');
+            const advDmWrap = document.getElementById('adv-dm-wrap');
+            const advDmChild = document.getElementById('adv-dm-child');
+            const shadowProgress = document.getElementById('shadow-progress');
+            const fullProgress = document.getElementById('full-progress');
+            const playlistStyle = document.getElementById('bfd-playlist-indicator-style');
+            const syncStyle = [...document.querySelectorAll('style')].find(s => (s.textContent || '').includes('.bpx-player-dm-mask-wrap:has(.bfd-video-sync)'));
+            function countParsedRules(cssText) {
+              if (!cssText) return 0;
+              const probe = document.createElement('style');
+              probe.disabled = true;
+              probe.textContent = cssText;
+              document.head.appendChild(probe);
+              const len = probe.sheet?.cssRules?.length ?? 0;
+              probe.remove();
+              return len;
+            }
+            const dmMaskCss = getComputedStyle(dmMaskWrap);
+            const advWrapCss = getComputedStyle(advDmWrap);
+            const advChildCss = getComputedStyle(advDmChild);
+            const syncStatus = window.BFDVideoSync?.readStatus?.();
+            const diagnostics = window.BFDVideoSync?.readDiagnostics?.() || [];
+            done({
+              legacyDisplay: getComputedStyle(document.getElementById('legacy')).display,
+              modernDisplay: getComputedStyle(document.getElementById('modern')).display,
+              unrelatedDisplay: getComputedStyle(document.getElementById('unrelated')).display,
+              videoVisibility: getComputedStyle(video).visibility,
+              dmVisibility: getComputedStyle(document.getElementById('dm-container')).visibility,
+              dmMaskVisibility: dmMaskCss.visibility,
+              dmMaskImage: dmMaskCss.maskImage,
+              dmMaskWidth: dmMaskWrap.getBoundingClientRect().width,
+              advWrapVisibility: advWrapCss.visibility,
+              advChildVisibility: advChildCss.visibility,
+              advChildAnimation: advChildCss.animationName,
+              shadowProgressVisibility: getComputedStyle(shadowProgress).visibility,
+              fullProgressVisibility: getComputedStyle(fullProgress).visibility,
+              playlistStyleConnected: Boolean(playlistStyle?.isConnected),
+              playlistRuleCount: countParsedRules(playlistStyle?.textContent || ''),
+              syncRuleCount: countParsedRules(syncStyle?.textContent || ''),
+              syncStatus,
+              diagnostics
+            });
+          } catch (err) {
+            done({ __scriptError: err?.stack || String(err) });
+          }
         })();
       `,
       args: []
     });
     const vod = vodResult.value;
+    assert(!vod.__scriptError, `VOD script failed: ${vod.__scriptError}`);
+    assert.equal(vod.playlistStyleConnected, true);
     assert.equal(vod.legacyDisplay, 'none');
     assert.equal(vod.modernDisplay, 'none');
     assert.notEqual(vod.unrelatedDisplay, 'none');
+    assert.equal(vod.playlistRuleCount, 7, 'Gecko must parse all 7 CSS rules in playlist-indicator.js without dropping :has() selectors');
+    assert.equal(vod.syncRuleCount, 3, 'Gecko must parse all 3 CSS rules in video-sync.js syncCSS without dropping :has() selectors');
+    assert.equal(vod.dmMaskVisibility, 'hidden', 'v1.5.2 .bpx-player-dm-mask-wrap:has(.bfd-video-sync) must hide smart-mask wrapper');
+    assert.equal(vod.dmMaskImage, 'none', 'v1.5.2 .bpx-player-dm-mask-wrap:has(.bfd-video-sync) must clear mask-image');
+    assert.equal(vod.dmMaskWidth, 640, 'syncCSS must preserve layout box geometry (never display:none)');
+    assert.equal(vod.advWrapVisibility, 'hidden');
+    assert.equal(vod.advChildVisibility, 'hidden');
+    assert.equal(vod.advChildAnimation, 'none');
+    assert.equal(vod.shadowProgressVisibility, 'hidden', 'v1.5.2 .bpx-state-no-cursor .bpx-player-shadow-progress-area must hide idle shadow progress');
+    assert.equal(vod.fullProgressVisibility, 'visible', 'full .bpx-player-progress-area must remain untouched');
     assert.equal(vod.videoVisibility, 'hidden', 'Firefox WebGL single-canvas hides <video> to disable separate DComp video swapchain');
     assert.equal(vod.dmVisibility, 'hidden');
     assert.equal(vod.syncStatus.active, true, `VOD sync inactive: ${vod.syncStatus?.reason}`);
@@ -497,14 +582,16 @@ class MarionetteClient {
     const vodShot = (await client.send('WebDriver:TakeScreenshot')).value;
     fs.writeFileSync(path.join(out, 'vod-composite-firefox.png'), Buffer.from(vodShot, 'base64'));
     report.checks.push({
-      name: 'VOD WebGL single-canvas stays continuous >2.6s with hidden <video> DComp swapchain and indicator suppression',
+      name: 'VOD WebGL single-canvas + fresh-install defaults + v1.5.2 .bpx-player-dm-mask-wrap & shadow-progress rules verified in Gecko',
       frames: vod.syncStatus.frames,
       fps: vod.syncStatus.fps,
       surface: vod.syncStatus.composite.surface,
-      comments: vod.syncStatus.composite.comments
+      comments: vod.syncStatus.composite.comments,
+      playlistRuleCount: vod.playlistRuleCount,
+      syncRuleCount: vod.syncRuleCount
     });
 
-    // 4. Verify ISOLATED <-> MAIN bridge roundtrip via browser.tabs.sendMessage from popup tab
+    // 4. Verify ISOLATED <-> MAIN bridge roundtrip & popup UI save via browser.storage.local
     await client.send('WebDriver:SwitchToWindow', { handle: popupHandle });
     const bridgeRoundtrip = await client.send('WebDriver:ExecuteAsyncScript', {
       script: `
@@ -513,12 +600,17 @@ class MarionetteClient {
           const tabs = await browser.tabs.query({});
           const vodTab = tabs.find(t => (t.url || '').includes('www.bilibili.com/video/'));
           const status = await browser.tabs.sendMessage(vodTab.id, { type: 'bfd-get-status' });
-          // Toggle hidePlaylistIndicator off dynamically and verify live storage event propagation
-          const current = (await browser.storage.local.get('bfdSettings')).bfdSettings;
-          await browser.storage.local.set({ bfdSettings: { ...current, hidePlaylistIndicator: false } });
+          // Exercise popup UI control save -> browser.storage.local
+          const anim = document.getElementById('hide-playlist-indicator');
+          anim.checked = false;
+          anim.dispatchEvent(new Event('change', { bubbles: true }));
           await new Promise(r => setTimeout(r, 80));
-          await browser.storage.local.set({ bfdSettings: { ...current, hidePlaylistIndicator: true } });
-          done({ foundTab: !!vodTab, status });
+          const savedOff = (await browser.storage.local.get('bfdSettings')).bfdSettings;
+          anim.checked = true;
+          anim.dispatchEvent(new Event('change', { bubbles: true }));
+          await new Promise(r => setTimeout(r, 80));
+          const savedOn = (await browser.storage.local.get('bfdSettings')).bfdSettings;
+          done({ foundTab: !!vodTab, status, savedOff, savedOn });
         })();
       `,
       args: []
@@ -527,27 +619,60 @@ class MarionetteClient {
     assert.equal(bridgeRoundtrip.value.status?.supportedPage, true);
     assert.equal(bridgeRoundtrip.value.status?.motion, 'video-sync');
     assert.equal(bridgeRoundtrip.value.status?.videoSync?.active, true);
-    report.checks.push({ name: 'ISOLATED bridge.js <-> MAIN hook.js Promise messaging roundtrip succeeds', status: bridgeRoundtrip.value.status });
+    assert.equal(bridgeRoundtrip.value.savedOff?.hidePlaylistIndicator, false);
+    assert.equal(bridgeRoundtrip.value.savedOn?.hidePlaylistIndicator, true);
+    assert.equal(bridgeRoundtrip.value.savedOn?.motion, 'video-sync');
+    report.checks.push({ name: 'ISOLATED bridge.js <-> MAIN hook.js Promise messaging roundtrip and popup storage save succeed', status: bridgeRoundtrip.value.status });
 
-    // 5. Navigate content tab to Live room fixture and verify BFDLiveSync + BFDLiveCompositor + ImageDecoder
+    // 5. Navigate content tab to Live room fixture and verify BFDLiveSync + BFDLiveCompositor + ImageDecoder + v1.5.3 NOTICE_MSG suppression
     await client.send('WebDriver:SwitchToWindow', { handle: contentHandle });
     await client.send('WebDriver:Navigate', { url: 'https://live.bilibili.com/12345' });
     const liveResult = await client.send('WebDriver:ExecuteAsyncScript', {
       script: `
         const [done] = arguments;
         (async () => {
-          await window.__startLivePlayback();
-          await new Promise(r => setTimeout(r, 1500));
-          done({
-            liveStatus: window.BFDLiveSync?.readStatus?.(),
-            videoOpacity: document.getElementById('live-video')?.style.getPropertyValue('opacity'),
-            layerMasked: document.querySelector('.web-player-danmaku')?.hasAttribute('data-bfd-live-mask')
-          });
+          try {
+            await window.__startLivePlayback();
+            await new Promise(r => setTimeout(r, 1500));
+            const posCtnr = document.querySelector('[data-testid="notice-position-ctnr"]');
+            const wrapDom = document.querySelector('[data-testid="notice-wrapper-dom"]');
+            const aw = document.getElementById('notice-aw');
+            const headIcon = document.getElementById('notice-head-icon');
+            const tailIcon = document.getElementById('notice-tail-icon');
+            const ctrlWrap = document.getElementById('web-player-controller-wrap-el');
+            const fsDanmaku = document.getElementById('fullscreen-danmaku-vm');
+            const headInfo = document.getElementById('head-info-vm');
+            const giftSection = document.getElementById('gift-section');
+            const bannerAnimations = (posCtnr?.getAnimations?.({ subtree: true }) || []).length;
+            done({
+              liveStatus: window.BFDLiveSync?.readStatus?.(),
+              videoOpacity: document.getElementById('live-video')?.style.getPropertyValue('opacity'),
+              layerMasked: document.querySelector('.web-player-danmaku')?.hasAttribute('data-bfd-live-mask'),
+              posCtnrDisplay: getComputedStyle(posCtnr).display,
+              wrapDomDisplay: getComputedStyle(wrapDom).display,
+              wrapDomAnimation: getComputedStyle(wrapDom).animationName,
+              wrapDomTransition: getComputedStyle(wrapDom).transitionProperty,
+              awDisplay: getComputedStyle(aw).display,
+              awBgImage: getComputedStyle(aw).backgroundImage,
+              headIconAnimation: getComputedStyle(headIcon).animationName,
+              tailIconAnimation: getComputedStyle(tailIcon).animationName,
+              bannerAnimations,
+              headInfoDisplay: getComputedStyle(headInfo).display,
+              giftSectionVisibility: getComputedStyle(giftSection).visibility,
+              ctrlWrapDisplay: getComputedStyle(ctrlWrap).display,
+              ctrlWrapVisibility: getComputedStyle(ctrlWrap).visibility,
+              fsDanmakuDisplay: getComputedStyle(fsDanmaku).display,
+              fsDanmakuVisibility: getComputedStyle(fsDanmaku).visibility
+            });
+          } catch (err) {
+            done({ __scriptError: err?.stack || String(err) });
+          }
         })();
       `,
       args: []
     });
     const live = liveResult.value;
+    assert(!live.__scriptError, `Live script failed: ${live.__scriptError}`);
     assert.equal(live.liveStatus?.active, true, `Live sync inactive: ${live.liveStatus?.reason}`);
     assert(live.liveStatus.frames >= 15, `Expected >=15 live rVFC frames, got ${live.liveStatus.frames}`);
     assert.equal(live.liveStatus.composite.surface, 'webgl-single-canvas');
@@ -558,14 +683,30 @@ class MarionetteClient {
     assert.equal(live.liveStatus.composite.imageFailures, 0);
     assert.equal(live.videoOpacity, '0', 'Firefox Live WebGL must mute <video> opacity to disable DComp swapchain');
     assert.equal(live.layerMasked, true);
+    assert.equal(live.posCtnrDisplay, 'none', 'v1.5.3 NOTICE_MSG positionCtnr must be display:none via :has(.announcement-wrapper)');
+    assert.equal(live.wrapDomDisplay, 'none', 'v1.5.3 NOTICE_MSG wrapperDom must be display:none via :has(> .announcement-wrapper)');
+    assert.equal(live.wrapDomAnimation, 'none');
+    assert.equal(live.wrapDomTransition, 'none');
+    assert.equal(live.awDisplay, 'none', 'v1.5.3 .announcement-wrapper must be display:none');
+    assert.equal(live.awBgImage, 'none');
+    assert.equal(live.headIconAnimation, 'none');
+    assert.equal(live.tailIconAnimation, 'none');
+    assert.equal(live.bannerAnimations, 0, 'Zero CSS animations may remain active inside NOTICE_MSG banner subtree');
+    assert.equal(live.headInfoDisplay, 'none', 'Web-Fullscreen body.player-full-win #head-info-vm must be display:none');
+    assert.equal(live.giftSectionVisibility, 'hidden', 'Idle opacity:0 gift-control-section must be visibility:hidden');
+    assert.notEqual(live.ctrlWrapDisplay, 'none', 'Player controls must never be hidden');
+    assert.equal(live.ctrlWrapVisibility, 'visible');
+    assert.notEqual(live.fsDanmakuDisplay, 'none', 'Fullscreen danmaku input area must never be hidden');
+    assert.equal(live.fsDanmakuVisibility, 'visible');
     const liveShot = (await client.send('WebDriver:TakeScreenshot')).value;
     fs.writeFileSync(path.join(out, 'live-composite-firefox.png'), Buffer.from(liveShot, 'base64'));
     report.checks.push({
-      name: 'Live room compositor, emoji ImageDecoder, and native layer masking run cleanly in Firefox',
+      name: 'Live room WebGL compositor, emoji ImageDecoder, and v1.5.3 NOTICE_MSG / web-fullscreen suppression run cleanly in Firefox',
       frames: live.liveStatus.frames,
       comments: live.liveStatus.composite.comments,
       assets: live.liveStatus.composite.assets,
-      imageFailures: live.liveStatus.composite.imageFailures
+      imageFailures: live.liveStatus.composite.imageFailures,
+      bannerAnimations: live.bannerAnimations
     });
 
     await client.send('WebDriver:DeleteSession').catch(() => {});

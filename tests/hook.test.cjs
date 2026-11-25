@@ -40,8 +40,19 @@ function harness(body = f.packet([1, 4, 6]).buffer) {
     context.dispatch = listeners[0];
     vm.runInContext("dispatch({source:window, origin:location.origin, data:incoming})", context);
   }
+  if (body !== null) settings({ enabled: true, motion: "fixed", position: "top" });
   return { context, messages, settings, FakeXHR };
 }
+test("default MAIN hook state starts in video-sync without rewriting early danmaku packets", async () => {
+  const { context } = harness(null);
+  const packet = f.packet([1, 4, 6]).buffer;
+  const response = await (async () => {
+    context.XMLHttpRequest = class {};
+    return core.rewriteProtobuf(packet);
+  })();
+  assert.equal(response.converted, 0);
+  assert.equal(context.messages?.at(-1)?.payload.motion ?? "video-sync", "video-sync");
+});
 test("fetch protobuf transformed; URL metadata and clone preserved", async () => {
   const { context, messages } = harness();
   const response = await context.fetch(URL_DM);
@@ -79,12 +90,12 @@ test("XHR XML response and responseText share cache", () => {
 });
 test("settings apply to subsequent packets, including restore-original", async () => {
   const { context, settings, FakeXHR } = harness();
-  settings({ enabled: true, position: "bottom" });
+  settings({ enabled: true, motion: "fixed", position: "bottom" });
   let response = await context.fetch(URL_DM);
   assert.deepEqual(f.modesFrom(new Uint8Array(await response.arrayBuffer())), [4, 4, 4]);
   const xhr = new FakeXHR();
   assert.deepEqual(f.modesFrom(new Uint8Array(xhr.response)), [4, 4, 4]);
-  settings({ enabled: false });
+  settings({ enabled: false, motion: "fixed" });
   response = await context.fetch(URL_DM);
   assert.deepEqual(f.modesFrom(new Uint8Array(await response.arrayBuffer())), [1, 4, 6]);
   assert.equal(xhr.response, xhr.value);
@@ -121,4 +132,39 @@ test("fetch XML gets transformed through the same hook", async () => {
   const { context } = harness('<i><d p="0,6,25,0,0,0,u,1">XML</d></i>');
   const response = await context.fetch("https://comment.bilibili.com/1.xml");
   assert.match(await response.text(), /p="0,5,/);
+});
+test("SPA pushState and deferred emptied rebind videoSync after target-phase emptied teardown", async () => {
+  const docEvents = new Map(), winEvents = new Map(), syncUpdates = [];
+  let renderer = { id: "r1", add() {} }, targetEmptiedDone = false;
+  const history = {
+    pushState(_state, _title, url) { context.location.href = new URL(url, context.location.origin).href; }
+  };
+  const context = {
+    BFDFixedCore: core, URL, ArrayBuffer, Headers, Response, Promise, history,
+    location: { href: "https://www.bilibili.com/video/BVprev", origin: "https://www.bilibili.com" },
+    player: { danmaku: { getDanmakuX: () => renderer } },
+    BFDVideoSync: { create: () => ({ update: (s, r) => syncUpdates.push({ s, r, targetEmptiedDone }), status: () => ({ active: true }), refresh() {} }) },
+    document: { addEventListener: (name, fn) => docEvents.set(name, fn) },
+    addEventListener: (name, fn) => winEvents.set(name, fn),
+    postMessage() {}
+  };
+  context.window = context;
+  vm.createContext(context);
+  vm.runInContext(hook, context);
+  syncUpdates.length = 0;
+  // Simulate capture-phase emptied firing BEFORE <video> target-phase emptied
+  docEvents.get("emptied")({ type: "emptied" });
+  assert.equal(syncUpdates.length, 0, "capture-phase emptied must defer until target-phase teardown completes");
+  targetEmptiedDone = true;
+  renderer = { id: "r2", add() {} };
+  await Promise.resolve();
+  assert.equal(syncUpdates.length, 1);
+  assert.equal(syncUpdates[0].targetEmptiedDone, true);
+  assert.equal(syncUpdates[0].r.id, "r2");
+  // Simulate Vue Router pushState to recommended video
+  syncUpdates.length = 0;
+  context.history.pushState({}, "", "/video/BV1Uthv6fEKw/?spm_id_from=333.788.recommend_more_video.-1");
+  await Promise.resolve();
+  assert.equal(syncUpdates.length, 1);
+  assert.equal(context.location.pathname || new URL(context.location.href).pathname, "/video/BV1Uthv6fEKw/");
 });

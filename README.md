@@ -4,16 +4,18 @@
 
 **插件本身不生成中间帧，需要配合 Lossless Scaling 使用。** 如果小黄鸭帧数显示上升，但视频运动画面仍不流畅，可以在相同视频片段中试用并比较实际效果。
 
-## 1.5.0 更新要点
+## 1.5.3 更新要点
 
-- **新增 Mozilla Firefox（140+）适配：** 支持 Firefox 正式版及 140 ESR，解决 Gecko 视频合成可见性、后台标签页挂起恢复及 `browser.*` Promise 通信差异，并提供符合 Mozilla 官方商店（AMO）规范的专用安装包。
-- **新版番剧与电影播放指示图标屏蔽：** 打开“减少页面动画”后，旧版 `.playing-gif`、新版 `PlayingIcon_playIcon__` 共用组件及播放指示素材路径统一匹配，动态插入和随机哈希后缀变化也会自动应用。
+- **点播智能防挡蒙版与控制栏阴影进度条抑制：** 滚动弹幕同步期间自动抑制B站 AI 智能防挡弹幕蒙版（`div.bpx-player-dm-mask-wrap`）的高频 SVG 遮罩重绘与高级弹幕层（`.bpx-player-adv-dm-wrap`）刷新，并在控制栏自动隐藏后收起底部阴影进度条（`.bpx-player-shadow-progress-area`），消除 Edge / Chrome 在开启防挡片源或网页全屏下的错位重复合成提交。
+- **直播跨房广播横幅与全屏／网页全屏浮层隔离：** 「减少页面动画」新增B站直播跨房广播横幅（`NOTICE_MSG` 无类名位移外层及精灵帧动画）与全屏互动动效浮层抑制，隔离网页全屏及原生全屏下的背景外围分支与自动渐隐礼花栏，同时完整保留播放器控制栏、弹幕输入与菜单交互。
+- **默认开启推荐组合与点播连播／60fps 修复：** 全新安装默认启用「滚动弹幕」与「减少页面动画」；支持右侧推荐视频等 SPA 路由切换（`router-related`）自动重绑、点播原生全屏外围隔离，并保留 Chromium 底层 `<video>` 可见以避免 60fps 点播帧回调降半。
+- **桌面端 Mozilla Firefox（140+）完整适配（自 1.5.0 起）：** 支持 Firefox 正式版与 140 ESR，采用零回读 WebGL 单画布 GPU 合成与 `mozPresentedFrames` 按帧同步驱动，兼顾原视频满帧无损播放与单交换链原子提交，并提供符合 Mozilla 官方商店（AMO）规范的专用 `-firefox.zip` 安装包及共用播放指示图标屏蔽规则。
 
 ## 下载与安装
 
-- **最新版发布页：[GitHub Releases](https://github.com/2050juyia/bilibili-ls-helper/releases/latest)**（当前版本 **1.5.0**）：
-  - **Edge / Chrome 安装包：** `bilibili-danmaku-assistant-v1.5.0.zip`（解压后加载 `bilibili-fixed-danmaku` 文件夹）。
-  - **Firefox（140+）安装包：** 推荐通过 Firefox 官方商店一键安装，或在 `about:addons` 从文件安装已签名的 `.xpi` 包；开发调试可在 `about:debugging` 临时载入 `bilibili-danmaku-assistant-v1.5.0-firefox.zip`。
+- **最新版发布页：[GitHub Releases](https://github.com/2050juyia/bilibili-ls-helper/releases/latest)**（当前版本 **1.5.3**）：
+  - **Edge / Chrome 安装包：** [`bilibili-danmaku-assistant-v1.5.3.zip`](https://github.com/2050juyia/bilibili-ls-helper/releases/download/v1.5.3/bilibili-danmaku-assistant-v1.5.3.zip)（解压后加载 `bilibili-fixed-danmaku` 文件夹）。
+  - **Firefox（140+）安装包：** 推荐通过 Firefox 官方商店一键安装，或在 `about:addons` 从文件安装已签名的 `.xpi` 包；开发调试可在 `about:debugging` 临时载入 [`bilibili-danmaku-assistant-v1.5.3-firefox.zip`](https://github.com/2050juyia/bilibili-ls-helper/releases/download/v1.5.3/bilibili-danmaku-assistant-v1.5.3-firefox.zip)。
 - **GitHub 源码与说明：[2050juyia/bilibili-ls-helper](https://github.com/2050juyia/bilibili-ls-helper)**。Edge / Chrome 点击 **Code → Download ZIP** 下载源码包时，解压后加载其中的 `extension` 文件夹。
 - **备用旧入口：[夸克网盘](https://pan.quark.cn/s/4603da61b708)**。网盘可能仍为旧版，未确认同步更新；最新版本以 GitHub Releases 为准。
 
@@ -21,7 +23,7 @@
 
 ### Edge / Chrome 快速安装步骤
 
-1. 将 `bilibili-danmaku-assistant-v1.5.0.zip` 解压到一个以后不会删除或移动的固定文件夹。
+1. 将 `bilibili-danmaku-assistant-v1.5.3.zip` 解压到一个以后不会删除或移动的固定文件夹。
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。
 3. 开启「开发者模式」，选择「加载已解压的扩展程序」。
 4. 选择解压后**直接包含 `manifest.json`** 的文件夹：Release 安装包选 `bilibili-fixed-danmaku`；GitHub 源码包选 `extension`。
@@ -37,7 +39,7 @@ bilibili-fixed-danmaku/
 ### Firefox（140+）快速安装步骤
 
 - **永久安装（正式版推荐）：** 在 Firefox 官方附加组件商店点击「添加到 Firefox」，或下载已签名 `.xpi` 文件后打开 `about:addons` → 右上角齿轮图标 →「从文件安装附加组件…」。
-- **临时调试：** 打开 `about:debugging#/runtime/this-firefox` → 点击「临时载入附加组件…」→ 直接选择 `bilibili-danmaku-assistant-v1.5.0-firefox.zip`（无需解压；关闭 Firefox 后会自动移除）。
+- **临时调试：** 打开 `about:debugging#/runtime/this-firefox` → 点击「临时载入附加组件…」→ 直接选择 `bilibili-danmaku-assistant-v1.5.3-firefox.zip`（无需解压；关闭 Firefox 后会自动移除）。
 
 ### Edge / Chrome / Firefox 安装图解
 
@@ -74,9 +76,9 @@ bilibili-fixed-danmaku/
 
 | 浏览器 | 验证情况 |
 | --- | --- |
-| Microsoft Edge | 已有实机与受控自动化验证记录（声明 Chromium 最低版本 111）。 |
-| Google Chrome | 2026-10-19 用户基于 1.3.13 实测反馈正常使用（声明 Chromium 最低版本 111）。 |
-| Mozilla Firefox | 1.5.0 已通过 Windows 版 Firefox 160.0.1 受控端到端自动化验收（声明最低桌面版本 140.0）。 |
+| Microsoft Edge | 已有实机与受控 DirectComposition 帧提交自动化验证记录（声明 Chromium 最低版本 111）。 |
+| Google Chrome | 已有用户实测反馈及 1.5.2+ DirectComposition 帧提交自动化验证记录（声明 Chromium 最低版本 111）。 |
+| Mozilla Firefox | 1.5.3 已通过 Windows 版 Firefox 160.0.1 受控自动化与真实点播／直播验收（声明最低桌面版本 140.0）。 |
 | 360、QQ及其他浏览器 | 尚未完成验证，不将共享内核视为已确认兼容。 |
 
 以上是已有环境的验证记录，不代表所有浏览器版本、设备和视频都已逐一实测。正式版 Firefox 安装持久扩展需经 Mozilla 签名（商店上架或已签名 `.xpi`），未签名 `-firefox.zip` 在正式版中仅支持 `about:debugging` 单次会话临时加载。遇到问题时请一并提供浏览器与系统版本信息。
@@ -97,17 +99,17 @@ bilibili-fixed-danmaku/
 | --- | --- |
 | 滚动弹幕 | 在视频帧回调中合成视频与普通文字弹幕；直播还支持图片表情。滚动位置与动态表情跟随视频帧更新，暂停时停止持续更新。 |
 | 固定弹幕 | 点播将普通滚动弹幕转换为原生固定文字；直播在本地显示层分配固定轨道。可选择上方、下方或上下分配，轨道不足时可能略过部分弹幕。 |
-| 减少页面动画 | 屏蔽选集播放动态图标、停用顶部部分入口轮播；直播播放器全屏时隔离已识别的B站外围区域。保留播放器与控件，退出全屏或关闭设置后恢复外围页面；此开关独立于弹幕总开关。 |
+| 减少页面动画 | 屏蔽选集与直播动态指示图标、停用顶部轮播、收起无光标状态下的底部阴影进度条，并抑制直播跨房广播横幅与全屏无交互动效浮层；在视频、番剧或直播播放器全屏／网页全屏时隔离已识别的B站外围区域。保留播放器与控件，退出全屏或关闭设置后恢复外围页面；此开关独立于弹幕总开关。 |
 | 自己发送的弹幕 | 合成时保留原生蓝色边框、透明度和位置。发送到B站服务器的内容与类型不由插件改写。 |
 | 直播原画切流保护 | 助手启用时让手动画质切换重新取得所选画质及备用线路，减少自动换线误用旧画质的情况；代价是切画质时可能短暂重新缓冲。 |
 
 直播表情支持静态图片，以及浏览器解码能力和资源限额允许的 GIF、APNG、WebP 动图。图片加载完成只更新缓存，等下一视频帧呈现；读取或解码失败时显示占位，动态图片过大或解码能力不足时使用静帧。
 
-针对直播视频处理帧数与呈现回调持续不一致的情况，助手会在现有视频回调内进行一次短暂合成状态恢复，经过两个成功视频帧后还原临时属性。同一视频实例最多尝试一次，重建画布、切模式或开关助手不重置额度。触发条件不是故障诊断，正常高帧率源与真实负载过高也可能满足；不能保证恢复，也不会无限重试。
+针对点播与直播视频处理帧数与呈现回调持续不一致的情况，助手会在现有视频回调内进行一次短暂合成状态恢复，经过两个成功视频帧后还原临时属性。同一视频实例最多尝试一次，重建画布、切模式或开关助手不重置额度。触发条件不是故障诊断，正常高帧率源与真实负载过高也可能满足；不能保证恢复，也不会无限重试。
 
 推荐选择「滚动弹幕」。**只有想把滚动弹幕改成固定文字时，才选择「固定弹幕」**，并在B站允许显示对应位置的固定弹幕；密集场景下，原生固定弹幕可能省略部分内容（漏显示）。没有这个需求，直接使用滚动模式。滚动模式也会保留原有固定弹幕。
 
-首次安装请手动检查并选择上述模式，不以初始选项代替实际设置。
+1.5.1 起全新安装默认开启「滚动弹幕」与「减少页面动画」；从旧版升级或首次安装后仍建议打开面板核对当前设置，并点击刷新应用。
 
 ## 更新后要刷新实际播放窗口
 
@@ -157,11 +159,11 @@ npm run check
 python scripts/package.py
 ```
 
-打包脚本读取**已提交的 HEAD**，同时生成面向 Edge / Chrome 的 `bilibili-danmaku-assistant-v1.5.0.zip` 与面向 Firefox / AMO 的根目录结构包 `bilibili-danmaku-assistant-v1.5.0-firefox.zip`，并写入 `release-manifest.json` 与 `SHA256SUMS.txt`。本地调试 Firefox 可运行 `npm run build:firefox-dev` 生成解包目录，或运行 `node scripts/firefox-ui-check.cjs` 执行本机 Firefox Marionette 端到端检查。AMO 上架流程与文案见 [docs/amo-submission-guide.zh-CN.md](docs/amo-submission-guide.zh-CN.md)。大型测试产物、浏览器配置和日志留在忽略的工作目录，不加入仓库。
+打包脚本默认读取**已提交的 HEAD**（开发校验可加 `--working-tree`），同时生成面向 Edge / Chrome 的 `bilibili-danmaku-assistant-v1.5.3.zip` 与面向 Firefox / AMO 的根目录结构包 `bilibili-danmaku-assistant-v1.5.3-firefox.zip`，并写入 `release-manifest.json` 与 `SHA256SUMS.txt`。本地调试 Firefox 可运行 `npm run build:firefox-dev` 生成解包目录，或运行 `node scripts/firefox-ui-check.cjs` 执行本机 Firefox Marionette 端到端检查。AMO 上架流程与文案见 [docs/amo-submission-guide.zh-CN.md](docs/amo-submission-guide.zh-CN.md)。大型测试产物、浏览器配置和日志留在忽略的工作目录，不加入仓库。
 
 本公开源码包含无需第三方依赖的 Node.js 测试。早期依赖特定浏览器配置或旧开发历史的辅助脚本没有随包发布；`scripts/passive-frame-audit.js` 是供开发者使用的被动检查工具，不由扩展加载。受控检查的边界见 `TEST-REPORT.md`，它们不等于小黄鸭在所有设备上的实测结果。
 
-1.4.5修复了离场慢表情占用加载名额、同一播放器替换弹幕容器后没有重绑，以及快速修改设置后关闭面板丢失后项的问题。发布范围及测试摘要见 [1.4.5发布说明](RELEASE_NOTES_v1.4.5.md) 和 [更新摘要](CHANGELOG.md)。
+1.5.3 汇总了 Firefox 140+ 双端适配、默认启用滚动弹幕与减少页面动画、点播 AI 智能防挡蒙版与 SPA 连播重绑修复，以及直播跨房广播横幅与全屏／网页全屏外围隔离。各版发布范围及测试摘要见 [1.5.3发布说明](RELEASE_NOTES_v1.5.3.md)、[1.5.0发布说明](RELEASE_NOTES_v1.5.0.md)、[1.4.5发布说明](RELEASE_NOTES_v1.4.5.md) 和 [更新摘要](CHANGELOG.md)。
 
 安装教程的图片可用 `python scripts/render-install-guides.py` 重新生成，额外依赖仅为Pillow，详见 `scripts/requirements-docs.txt` 和 [图源与复现说明](docs/assets/SOURCES.md)。这不是插件运行或普通安装所需的依赖。
 

@@ -37,7 +37,7 @@ function harness() {
   vm.createContext(context); vm.runInContext(fs.readFileSync(require.resolve('../extension/compositor.js'), 'utf8'), context);
   return { create: () => context.BFDCompositor.create(renderer, video), context, context2d, textContext, textCss, buffers, draws, canvas, host, video, container, renderer, item, operations, presents, box };
 }
-test('video and text complete off-screen before exactly one atomic present; original layers hidden only after success', () => {
+test('video and text complete off-screen before exactly one atomic present; Chromium keeps video visibility native while hiding danmaku layer', () => {
   const h = harness(), surface = h.create(); assert.equal(h.video.style.getPropertyValue('visibility'), ''); assert.equal(h.presents.length, 0);
   surface.draw();
   assert.equal(h.presents.length, 1);
@@ -46,7 +46,8 @@ test('video and text complete off-screen before exactly one atomic present; orig
   assert.deepEqual(frame.find(op => op[0] === 'drawImage').slice(2), [0, 75, 800, 450]);
   assert.deepEqual(frame.find(op => op[0] === 'fillText').slice(1), ['ordinary', 600, 5]);
   assert.equal(h.canvas.width, 1600); assert.equal(h.canvas.height, 1200);
-  assert.equal(h.video.style.getPropertyValue('visibility'), 'hidden'); assert.equal(h.container.style.getPropertyValue('visibility'), 'hidden');
+  assert.equal(h.video.style.getPropertyValue('visibility'), '', 'Chromium must not hide <video>, preventing 60fps callback halving');
+  assert.equal(h.container.style.getPropertyValue('visibility'), 'hidden');
   assert.equal(surface.status().presents, 1); assert.equal(surface.status().comments, 1);
 });
 test('original visibility priorities, pointer behavior and resources restore without changing other styles', () => {
@@ -67,15 +68,14 @@ test('successful frames repair externally changed visibility and a detached canv
   const before = h.presents.length; surface.draw();
   assert.equal(h.presents.length, before + 1); assert.equal(h.host.child, h.canvas);
   assert.equal(h.canvas.parentElement, h.host);
-  for (const node of [h.video, h.container]) {
-    assert.equal(node.style.getPropertyValue('visibility'), 'hidden');
-    assert.equal(node.style.getPropertyPriority('visibility'), 'important');
-  }
+  assert.equal(h.video.style.getPropertyValue('visibility'), 'visible');
+  assert.equal(h.container.style.getPropertyValue('visibility'), 'hidden');
+  assert.equal(h.container.style.getPropertyPriority('visibility'), 'important');
   assert.equal(h.container.style.getPropertyValue('pointer-events'), 'none');
   assert.equal(h.canvas.style.getPropertyValue('visibility'), 'visible');
   assert.equal(h.canvas.style.getPropertyPriority('visibility'), 'important');
   const repaired = counts(); surface.draw(); assert.deepEqual(counts(), repaired);
-  surface.restore(); assert.equal(h.host.child, null); assert.equal(h.video.style.getPropertyValue('visibility'), '');
+  surface.restore(); assert.equal(h.host.child, null); assert.equal(h.video.style.getPropertyValue('visibility'), 'visible');
   assert.equal(h.container.style.getPropertyValue('pointer-events'), '');
   assert(h.buffers.every(buffer => buffer.width === 1 && buffer.height === 1));
 });

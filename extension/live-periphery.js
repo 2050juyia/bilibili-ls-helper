@@ -1,20 +1,31 @@
-// Hide only recognized native branches outside the fullscreen live player.
+// Hide only recognized native branches outside the fullscreen Bilibili player.
 (() => {
   'use strict';
   if (globalThis.BFDLivePeriphery) return;
   const KEY = 'bfdSettings';
-  const appNames = ['head-info-vm', 'live-charge-vm', 'limit-boomman', 'aside-area-vm', 'sections-vm', 'sidebar-vm', 'room-ssr-vm'];
-  const bodyNames = ['guard-store-vm', 'enter-failure', 'iframe-popup-area', 'multi-player', 'player-animation-vm', 'mars-switch-vm',
+  const liveAppNames = ['head-info-vm', 'live-charge-vm', 'limit-boomman', 'aside-area-vm', 'sections-vm', 'sidebar-vm', 'room-ssr-vm',
+    'room-background-vm', 'background-manage-vm', 'my-dear-haruna-vm', 'enter-failure', 'iframe-popup-area', 'multi-player', 'player-animation-vm', 'mars-switch-vm'];
+  const liveBodyNames = ['guard-store-vm', 'enter-failure', 'iframe-popup-area', 'multi-player', 'player-animation-vm', 'mars-switch-vm',
     'script-requirement', 'link-popup-ctnr', 'lite-pay-ctnr', 'recharge-stores-ctnr', 'user-title-using-cntr', 'user-title-sending-cntr'];
+  const vodAppNames = ['biliMainHeader', 'bili-header', 'right-container', 'right-container-inner', 'plp-r',
+    'commentapp', 'comment-m-v1', 'v_desc', 'viewbox_report', 'video-toolbar-container', 'video-tag-container',
+    'danmukuBox', 'bili-footer', 'ad-report', 'vcd', 'slide-ad-exp', 'fixed-nav', 'palette-button-wrap'];
+  const vodBodyNames = ['bili-header', 'fixed-nav', 'palette-button-wrap'];
   const named = names => names.flatMap(name => ['.' + name, '#' + name]).join(',');
-  const APP = named(appNames) + ',footer.link-footer,footer .link-footer', BODY = named(bodyNames);
+  const LIVE_APP = named(liveAppNames) + ',footer.link-footer,footer .link-footer', LIVE_BODY = named(liveBodyNames);
+  const VOD_APP = named(vodAppNames) + ',footer.bili-footer', VOD_BODY = named(vodBodyNames);
   const PROTECTED = '#codex-agent-overlay-root,.codex-agent-overlay-root,#immersive-translate-browser-popup,.immersive-translate-browser-popup';
   const owned = new Map();
   let enabled = false, leaving = false, destroyed = false, revision = 0, currentFullscreen = null;
   let relinquished = new WeakSet(), observer = null, observed = new Set();
-  function isRoom() {
-    try { const url = new URL(location.href); return url.protocol === 'https:' && url.hostname === 'live.bilibili.com' && /^\/(?:blanc\/)?[1-9]\d*\/?$/.test(url.pathname); }
-    catch (_) { return false; }
+  function routeKind() {
+    try {
+      const url = new URL(location.href);
+      if (url.protocol !== 'https:') return null;
+      if (url.hostname === 'live.bilibili.com' && /^\/(?:blanc\/)?[1-9]\d*\/?$/.test(url.pathname)) return 'live';
+      if (url.hostname === 'www.bilibili.com' && /^\/(?:video\/|bangumi\/play\/)/.test(url.pathname)) return 'vod';
+      return null;
+    } catch (_) { return null; }
   }
   function protectedBranch(node) { return node.matches?.(PROTECTED) || !!node.querySelector?.(PROTECTED); }
   function restore(node, prior) {
@@ -38,10 +49,13 @@
   }
   function refresh() {
     if (destroyed) return;
-    const fullscreen = document.fullscreenElement;
-    const player = fullscreen?.matches?.('#live-player') ? fullscreen : fullscreen?.querySelector?.('#live-player');
-    const app = player?.closest?.('.live-room-app');
-    if (!enabled || leaving || !isRoom() || !fullscreen || fullscreen.isConnected === false || !player || !app ||
+    const kind = routeKind(), fullscreen = document.fullscreenElement;
+    const playerSelector = kind === 'live' ? '#live-player' : kind === 'vod' ? '#bilibili-player,.bpx-player-container' : '';
+    const APP = kind === 'live' ? LIVE_APP : VOD_APP, BODY = kind === 'live' ? LIVE_BODY : VOD_BODY;
+    const player = playerSelector ? (fullscreen?.matches?.(playerSelector) ? fullscreen : fullscreen?.querySelector?.(playerSelector)) : null;
+    const app = kind === 'live' ? player?.closest?.('.live-room-app')
+      : (player?.closest?.('#app') || player?.closest?.('.main-container,#mirror-vdcon,.video-container-v1'));
+    if (!enabled || leaving || !kind || !fullscreen || fullscreen.isConnected === false || !player || !app ||
         player.isConnected === false || !fullscreen.contains(player)) { stop(); return; }
     if (currentFullscreen !== fullscreen) { stop(); currentFullscreen = fullscreen; }
     const wanted = new Set(), watches = new Set();
@@ -92,7 +106,7 @@
     watch(watches);
   }
   function apply(value) { if (destroyed) return; revision++; enabled = value === true; refresh(); }
-  function storageChanged(changes, area) { if (area === 'local' && changes[KEY]) apply(changes[KEY].newValue?.hidePlaylistIndicator); }
+  function storageChanged(changes, area) { if (area === 'local' && changes[KEY]) apply(changes[KEY].newValue?.hidePlaylistIndicator !== false); }
   function hidePage() { leaving = true; stop(); }
   function showPage() { leaving = false; refresh(); }
   const ext = typeof browser === 'object' && browser?.storage ? browser : chrome;
@@ -115,5 +129,5 @@
   globalThis.addEventListener('popstate', refresh);
   ext.storage.onChanged.addListener(storageChanged);
   const initial = revision;
-  ext.storage.local.get(KEY).then(value => { if (!destroyed && initial === revision) { enabled = value?.[KEY]?.hidePlaylistIndicator === true; refresh(); } }).catch(() => {});
+  ext.storage.local.get(KEY).then(value => { if (!destroyed && initial === revision) { enabled = value?.[KEY]?.hidePlaylistIndicator !== false; refresh(); } }).catch(() => {});
 })();

@@ -12,7 +12,7 @@
     try {
       const values = await ext.storage.local.get("bfdSettings");
       if (settingsRevision === initial)
-        post("settings", values?.bfdSettings || { enabled: true, position: "top" });
+        post("settings", values?.bfdSettings || { enabled: true, motion: "video-sync", position: "top", hidePlaylistIndicator: true });
     } catch { if (settingsRevision === initial) post("get-status"); }
   }
   window.addEventListener("message", (event) => {

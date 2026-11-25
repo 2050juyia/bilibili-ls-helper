@@ -94,36 +94,55 @@ def build_firefox_working_tree(target_dir: Path) -> dict:
     }
 
 
-def build_committed_release(destination: Path) -> dict:
+def build_committed_release(destination: Path, from_working_tree: bool = False) -> dict:
     destination.mkdir(parents=True, exist_ok=True)
     commit = git("rev-parse", "HEAD").decode().strip()
-    tracked = set(git("ls-tree", "-r", "--name-only", "HEAD").decode().splitlines())
-    files = sorted(name for name in tracked if name.startswith("extension/"))
-    if not files:
-        raise SystemExit("No committed extension files")
-
     required_documents = {
         "INSTALL.zh-CN.md": "安装说明.md",
         "LICENSE": "LICENSE",
         "THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
     }
-    missing = sorted(set(required_documents) - tracked)
-    if missing:
-        raise SystemExit("Commit the public release documents first: " + ", ".join(missing))
 
-    manifest = json.loads(git("show", "HEAD:extension/manifest.json"))
+    chromium_payload: dict[str, bytes] = {}
+    if from_working_tree:
+        ext_dir = root / "extension"
+        ext_files = sorted(p for p in ext_dir.rglob("*") if p.is_file())
+        if not ext_files:
+            raise SystemExit("No working-tree extension files")
+        missing = sorted(src for src in required_documents if not (root / src).is_file())
+        if missing:
+            raise SystemExit("Missing public release documents in working tree: " + ", ".join(missing))
+        manifest = json.loads((ext_dir / "manifest.json").read_text(encoding="utf-8"))
+        dirty = bool(git("status", "--porcelain", "--", "extension", *required_documents.keys()).strip())
+        commit_ref = f"{commit}-working-tree" if dirty else commit
+        files = ["extension/" + p.relative_to(ext_dir).as_posix() for p in ext_files]
+        for p in ext_files:
+            relative = p.relative_to(ext_dir).as_posix()
+            chromium_payload[relative] = p.read_bytes()
+        for source, packaged in required_documents.items():
+            chromium_payload[packaged] = (root / source).read_bytes()
+    else:
+        tracked = set(git("ls-tree", "-r", "--name-only", "HEAD").decode().splitlines())
+        files = sorted(name for name in tracked if name.startswith("extension/"))
+        if not files:
+            raise SystemExit("No committed extension files")
+        missing = sorted(set(required_documents) - tracked)
+        if missing:
+            raise SystemExit("Commit the public release documents first: " + ", ".join(missing))
+        manifest = json.loads(git("show", "HEAD:extension/manifest.json"))
+        commit_ref = commit
+        for name in files:
+            relative = name.removeprefix("extension/")
+            chromium_payload[relative] = git("show", "HEAD:" + name)
+        for source, packaged in required_documents.items():
+            chromium_payload[packaged] = git("show", "HEAD:" + source)
+
     version = manifest["version"]
-    version_banner = ("Version: " + version + "\nGit commit: " + commit + "\n").encode("utf-8")
+    version_banner = ("Version: " + version + "\nGit commit: " + commit_ref + "\n").encode("utf-8")
 
     # 1. Chromium / Edge / Chrome archive (preserves bilibili-fixed-danmaku/ prefix)
     chromium_archive = destination / f"bilibili-danmaku-assistant-v{version}.zip"
     chromium_prefix = "bilibili-fixed-danmaku/"
-    chromium_payload: dict[str, bytes] = {}
-    for name in files:
-        relative = name.removeprefix("extension/")
-        chromium_payload[relative] = git("show", "HEAD:" + name)
-    for source, packaged in required_documents.items():
-        chromium_payload[packaged] = git("show", "HEAD:" + source)
     chromium_payload["VERSION.txt"] = version_banner
     chromium_hashes = {name: hashlib.sha256(content).hexdigest() for name, content in chromium_payload.items()}
 
@@ -161,7 +180,7 @@ def build_committed_release(destination: Path) -> dict:
 
     release = {
         "version": version,
-        "commit": commit,
+        "commit": commit_ref,
         "archive": chromium_archive.name,
         "sha256": chromium_sha256,
         "files": chromium_hashes,
@@ -184,7 +203,7 @@ def build_committed_release(destination: Path) -> dict:
         "firefoxArchive": str(firefox_archive),
         "firefoxSha256": firefox_sha256,
         "firefoxBytes": firefox_archive.stat().st_size,
-        "commit": commit,
+        "commit": commit_ref,
     }
 
 
@@ -196,13 +215,18 @@ def main(argv: list[str]) -> None:
         type=Path,
         help="Write a working-tree unpacked Firefox build and .zip to the given path",
     )
+    parser.add_argument(
+        "--working-tree",
+        action="store_true",
+        help="Build release archives into destination from the current working tree instead of committed HEAD",
+    )
     args = parser.parse_args(argv)
     if args.firefox_unpacked:
         target = args.firefox_unpacked if args.firefox_unpacked.is_absolute() else root / args.firefox_unpacked
         result = build_firefox_working_tree(target)
     else:
         dest = args.destination if args.destination.is_absolute() else root / args.destination
-        result = build_committed_release(dest)
+        result = build_committed_release(dest, from_working_tree=args.working_tree)
     print(json.dumps(result, ensure_ascii=False))
 
 

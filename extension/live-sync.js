@@ -222,7 +222,7 @@
       } catch (error) { s.inFrame = false; recover(s, 'draw', error); }
     }
     function update(settings, recoveryAttach = false) {
-      const next = { enabled: settings?.enabled === true && livePage(), mode: settings?.motion === 'video-sync' ? 'video-sync' : 'fixed',
+      const next = { enabled: settings?.enabled === true && livePage(), mode: settings?.motion === 'fixed' ? 'fixed' : 'video-sync',
         position: ['top', 'bottom', 'alternate'].includes(settings?.position) ? settings.position : 'top' };
       quality?.update(next.enabled && !hidden);
       const nextSignature = `${next.mode}|${next.position}`;
